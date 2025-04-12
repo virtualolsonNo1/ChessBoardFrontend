@@ -52,12 +52,23 @@ return (
                 position: 'absolute',
                 bottom: 0,
                 width: '100%',
-                height: `${barHeight}%`,
+                height: `${Math.max(0, Math.min(100, barHeight))}%`,
                 backgroundColor: '#f0f0f0',
                 transition: 'height 0.3s ease'
             }} />
             
-            {/* Text display (rotated for vertical bar) */}
+            <div className="eval-bar-text" style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%) rotate(-90deg)',
+                color: barHeight > 51 ? '#333' : '#f0f0f0',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+                textShadow: '0px 0px 2px rgba(0,0,0,0.5)'
+            }}>
+                {Math.round((barHeight - 50) / 10 * 100) / 100}
+            </div>
         </div>
     );
 
