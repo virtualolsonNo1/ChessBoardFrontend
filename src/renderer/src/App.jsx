@@ -246,6 +246,7 @@ function getBestMove(fen, depth = 15, setCurrentEvaluation) {
 
         // if it's best move, update eval
         } else if (moveNum == 1) {
+          console.log("setting current eval");
           setCurrentEvaluation(cp)
         }
       }

@@ -2,10 +2,14 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import WebSocket from 'ws'
+
+let mainWindow;
+let wss;
 
 function createWindow() {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 350,
     height: 200,
     show: false,
@@ -35,6 +39,37 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function startWebsocketServer() {
+  wss = new WebSocket.Server({port: 8080});
+  wss.on('connection', (ws) => {
+    console.log('Client connected');
+    
+    ws.on('message', (message) => {
+      let str = '';
+      for (let i = 0; i < message.length; i++) {
+        str += String.fromCharCode(message[i]);
+      }
+
+      console.log('Received:', str);
+      
+      if (mainWindow) {
+        mainWindow.webContents.send('ws-message', message);
+      }
+      
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+
+      ws.on('close', () => {
+        console.log('Client disconnected');
+      });
+      
+    });
+  })
 }
 
 // This method will be called when Electron has finished
@@ -67,6 +102,7 @@ app.whenReady().then(() => {
   //   }
   // })
   createWindow()
+  startWebsocketServer();
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -25,7 +25,8 @@
     "random-js": "^2.1.0",
     "react-chessboard": "^4.7.2",
     "react-spinners": "^0.15.0",
-    "stockfish.js": "^10.0.2"
+    "stockfish.js": "^10.0.2",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.0.0",
