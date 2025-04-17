@@ -24,6 +24,18 @@ const openings_fen = {
      caro: 'rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3'
 };
 
+// Now we have access to the safe API we exposed
+window.electronAPI.receive('ws-message', (message) => {
+
+  let str = '';
+  for (let i = 0; i < message.length; i++) {
+    str += String.fromCharCode(message[i]);
+  }
+  console.log('Received from WebSocket:', str)
+  // Update UI with the message
+  // document.getElementById('message-display').textContent = message
+})
+
 
   function updateMinELO(newELO, setMinELO) {
     if (newELO <= 2500 && newELO >= 0) {

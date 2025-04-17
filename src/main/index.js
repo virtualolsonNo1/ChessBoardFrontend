@@ -52,22 +52,21 @@ function startWebsocketServer() {
         str += String.fromCharCode(message[i]);
       }
 
-      console.log('Received:', str);
+      console.log('Received in backend:', str);
       
       if (mainWindow) {
         mainWindow.webContents.send('ws-message', message);
       }
+    // Add this: send an acknowledgment back to the client
+    ws.send('ack:' + str);
       
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(message);
-        }
-      });
+    });
 
-      ws.on('close', () => {
-        console.log('Client disconnected');
-      });
-      
+    ws.on('close', () => {
+      console.log('Client disconnected');
+    });
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
     });
   })
 }
