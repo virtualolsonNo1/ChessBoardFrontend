@@ -334,8 +334,9 @@ function onDrop(sourceSquare, targetSquare) {
     console.log('Received from WebSocket:', str)
     // Update UI with the message
     // document.getElementById('message-display').textContent = message
-    if (str == "new game") {
-      setGame(new Chess());
+    if (str == "reset game") {
+      console.log("resetting game!!!!!!")
+      setGame(new Chess(openings_fen['random']));
     } else {
     const move = game.move({
       from: str.substring(0, 2),
