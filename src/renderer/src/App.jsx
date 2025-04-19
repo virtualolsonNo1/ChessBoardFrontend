@@ -25,17 +25,6 @@ const openings_fen = {
 };
 
 // Now we have access to the safe API we exposed
-window.electronAPI.receive('ws-message', (message) => {
-
-  let str = '';
-  for (let i = 0; i < message.length; i++) {
-    str += String.fromCharCode(message[i]);
-  }
-  console.log('Received from WebSocket:', str)
-  // Update UI with the message
-  // document.getElementById('message-display').textContent = message
-})
-
 
   function updateMinELO(newELO, setMinELO) {
     if (newELO <= 2500 && newELO >= 0) {
@@ -337,6 +326,30 @@ function onDrop(sourceSquare, targetSquare) {
     }
   }
   
+  function handleWebsocketMessage(message) {
+    let str = '';
+    for (let i = 0; i < message.length; i++) {
+      str += String.fromCharCode(message[i]);
+    }
+    console.log('Received from WebSocket:', str)
+    // Update UI with the message
+    // document.getElementById('message-display').textContent = message
+    if (str == "new game") {
+      setGame(new Chess());
+    } else {
+    const move = game.move({
+      from: str.substring(0, 2),
+      to: str.substring(2, 4),
+    });
+
+    setGame(new Chess(game.fen()));
+
+   getBestMove(game.fen(), 15, setCurrentEvaluation); 
+  }
+
+  }
+  
+  window.electronAPI.receive('ws-message', handleWebsocketMessage);
 
   function displayOpening(new_opening, opening, setGame, allowDrag) {
     // re-set move text before re-render
@@ -370,94 +383,88 @@ function onDrop(sourceSquare, targetSquare) {
     setGame(new Chess(openings_fen[new_opening]));
   }
   
-  return (
-<div className="container mx-auto p-2">
-<div className="flex flex-col md:flex-row gap-2">
-  {/* Add the evaluation bar */}
-  <div className="hidden md:block" style={{ padding: '10px' }}>
-    <EvalBar 
-      evaluation={currentEvaluation} 
-      isWhiteToMove={game.turn() === 'w'} 
-      height={400} 
-      width={30} 
-    />
-  </div>
-  
-    <div className="container mx-auto p-2">
-      {/* Mobile: stacked, Desktop: side-by-side */}
-      <div className="flex flex-col md:flex-row gap-2">
-        {/* Chess board */}
-
-        <div className="w-full md:w-2/3">
-          <div className="max-w-lg mx-auto">
-          <Chessboard position={game.fen()} onPieceDrop={onDrop} arePiecesDraggable={allowDrop.current} boardOrientation={chessboardOrientation.current} areArrowsAllowed={allowDrop.current} customArrows={arrows} animationDuration={300}/>
-          </div>
-          {displayPlayMoveText.current && <div className="text-center font-bold text-lg my-2 bg-blue-100 dark:bg-blue-900 rounded text-black dark:text-white max-w-lg mx-auto">
-           {"Please play a move and compare with the best moves!"} 
-          </div>}
-          {/* Controls & Info */}
-          <div className="w-full">
-            <div className="rounded flex flex-col items-center text-center">
-              <h2>Please Select an Opening to Study</h2>
-              <select className="bg-white dark:bg-gray-700 text-black dark:text-white rounded border border-gray-300 dark:border-gray-600" onChange={(e) => displayOpening(e.target.value, opening, setGame, allowDrop)}>
-                <option value="random">Random</option>
-                <option value="italian">Italian Game</option>
-                <option value="sicilian">Sicilian Defense</option>
-                <option value="sicilian_yugoslov">Sicilian Defense Yugoslov Attack</option>
-                <option value="french">French Defense</option>
-                <option value="caro">Caro Kann</option>
-              </select>
-                <div>
-                  <label htmlFor="eloInput">Enter ELO Rating (0-2500):</label>
-                  <input
-                  id="eloInput"
-                  type="number"
-                  min="0"
-                  max="2500"
-                  value={minELO}
-                  onChange={(e) => updateMinELO(e.target.value, setMinELO)}
-                  className="bg-white dark:bg-gray-700 text-black dark:text-white p-2 rounded border border-gray-300 dark:border-gray-600 w-full"/>
-                </div>
-              <button onClick={() => loadRandomPosition(chessboardOrientation, setGame, opening, minELO, allowDrop, stockfishMove0, stockfishMove1, stockfishMove2, masterMove0, masterMove1, masterMove2, normieMove0, normieMove1, normieMove2, yourMove, movesFoundLate, setMovesFoundLate, setRandomPositionDisabled, loadingAPIResponses, setLoadingAPIResponses, disableAnalysisBoardButton, analysisBoardFEN, displayPlayMoveText, setArrows, displayMovesText, setCurrentEvaluation)} 
-              disabled={randomPositionDisabled}
-              className={`mt-2 ${randomPositionDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : `bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-1 px-4 rounded`}`}>Generate Random Position</button>
-            </div>
-          </div>
+return (
+  <div className="flex flex-row gap-2 max-w-6xl mx-auto">
+    {/* Add the evaluation bar - fixed width */}
+    <div className="hidden md:block" style={{ width: '50px', padding: '10px', flexShrink: 0 }}>
+      <EvalBar 
+        evaluation={currentEvaluation} 
+        isWhiteToMove={game.turn() === 'w'} 
+        height={400} 
+        width={30} 
+      />
+    </div>
+    
+    {/* Main content container with fixed widths */}
+    <div className="flex flex-col md:flex-row gap-4 flex-1">
+      {/* Chess board - fixed width */}
+      <div className="w-full md:w-auto md:flex-1" style={{ maxWidth: '500px', flexShrink: 0 }}>
+        <div>
+          <Chessboard 
+            position={game.fen()} 
+            onPieceDrop={onDrop} 
+            arePiecesDraggable={allowDrop.current} 
+            boardOrientation={chessboardOrientation.current} 
+            areArrowsAllowed={allowDrop.current} 
+            customArrows={arrows} 
+            animationDuration={300}
+          />
         </div>
-        <div className="w-full md:w-1/3">
-          <div className="bg-cream-100 p-2 rounded">
-            <h2 className="text-xl font-bold mb-4">Move Analysis</h2> 
-              <h3 className="text-l font-bold mb-4">Your Move: {yourMove.current}</h3> 
-              {loadingAPIResponses && <div className="loader flex items-center">
-              <span className="pr-5 font-bold">Loading Best Moves</span>
-              <ClipLoader
+        {displayPlayMoveText.current && 
+          <div className="text-center font-bold text-lg my-2 bg-blue-100 dark:bg-blue-900 rounded text-black dark:text-white">
+            {"Please play a move and compare with the best moves!"} 
+          </div>
+        }
+      </div>
+      
+      {/* Move Analysis - fixed width */}
+      <div className="w-full md:w-auto md:flex-1 bg-cream-100 p-4 rounded" style={{ maxWidth: '400px', flexShrink: 0 }}>
+        <h2 className="text-xl font-bold mb-4">Move Analysis</h2> 
+        <h3 className="text-l font-bold mb-4">Your Move: {yourMove.current}</h3> 
+        
+        {loadingAPIResponses && 
+          <div className="loader flex items-center">
+            <span className="pr-5 font-bold">Loading Best Moves</span>
+            <ClipLoader
               color={"#00ff00"}
               loading={loadingAPIResponses.current}
               override={override}
               size={20}
-              /></div>}
-              {loadingAPIResponses && <div className="pb-5">Feel Free to Play Your Move in the Meantime</div>}
-              <h3 className="text-l font-bold mb-4">Stockfish Best Moves</h3> 
-              <p className="text-green-500">Stockfish Move 0: {displayMovesText.current ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ","}</p>
-              <p className="text-yellow-500">Stockfish Move 1: {displayMovesText.current ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ","}</p>
-              <p className="text-orange-500">Stockfish Move 2: {displayMovesText.current ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ","}</p>
-              <h3 className="text-l font-bold mb-4">Popular Master Moves</h3> 
-              <p>Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
-              <p>Master Move 2: {displayMovesText.current ? `${masterMove1.current}` : ""}</p>
-              <p>Master Move 3: {displayMovesText.current ? `${masterMove2.current}` : ""}</p>
-              <h3 className="text-l font-bold mb-4">Popular Moves over {minELO}</h3> 
-              <p>Move 0: {displayMovesText.current ? `${normieMove0.current}` : ""}</p>
-              <p>Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
-              <p>Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
-            {!disableAnalysisBoardButton.current && <button onClick={() => openLichessAnalysisBoard(analysisBoardFEN.current)} 
-            className={`mt-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-2 px-4 rounded`}>Go To Lichess Analysis Board</button>}
+            />
           </div>
-        </div>
+        }
+        
+        {loadingAPIResponses && 
+          <div className="pb-5">Feel Free to Play Your Move in the Meantime</div>
+        }
+        
+        <h3 className="text-l font-bold mb-4">Stockfish Best Moves</h3> 
+        <p className="text-green-500">Stockfish Move 0: {displayMovesText.current ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ","}</p>
+        <p className="text-yellow-500">Stockfish Move 1: {displayMovesText.current ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ","}</p>
+        <p className="text-orange-500">Stockfish Move 2: {displayMovesText.current ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ","}</p>
+        
+        <h3 className="text-l font-bold mb-4">Popular Master Moves</h3> 
+        <p>Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
+        <p>Master Move 2: {displayMovesText.current ? `${masterMove1.current}` : ""}</p>
+        <p>Master Move 3: {displayMovesText.current ? `${masterMove2.current}` : ""}</p>
+        
+        <h3 className="text-l font-bold mb-4">Popular Moves over {minELO}</h3> 
+        <p>Move 0: {displayMovesText.current ? `${normieMove0.current}` : ""}</p>
+        <p>Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
+        <p>Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
+        
+        {!disableAnalysisBoardButton.current && 
+          <button 
+            onClick={() => openLichessAnalysisBoard(analysisBoardFEN.current)} 
+            className="mt-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Go To Lichess Analysis Board
+          </button>
+        }
       </div>
     </div>
   </div>
-</div>
-  )
+)
 }
 
 export default App
