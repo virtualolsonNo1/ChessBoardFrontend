@@ -214,6 +214,8 @@ function getBestMove(fen, depth = 15, setCurrentEvaluation) {
     type: "module",
     });
     
+    console.log(fen)
+    
     // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
     stockfish.postMessage("uci");
     stockfish.postMessage("isready");
@@ -249,8 +251,10 @@ function getBestMove(fen, depth = 15, setCurrentEvaluation) {
         } else if (moveNum == 1) {
           console.log("setting current eval");
           const game = new Chess(fen)
-          // setCurrentEvaluation(game.turn() == 'w' ? cp : cp * -1)
-          setCurrentEvaluation(cp)
+          console.log(game.turn())
+          const centipawn = game.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
+          console.log(centipawn)
+          setCurrentEvaluation(centipawn)
         }
       }
     };
@@ -345,6 +349,7 @@ function onDrop(sourceSquare, targetSquare) {
       console.log("resetting game!!!!!!")
       setGame(new Chess());
       console.log(gameRef.current.fen())
+      setCurrentEvaluation(0);
       return;
     } else {
     const move = gameRef.current.move({
@@ -354,7 +359,7 @@ function onDrop(sourceSquare, targetSquare) {
 
     setGame(new Chess(gameRef.current.fen()));
 
-   getBestMove(gameRef.current.fen(), 15, setCurrentEvaluation); 
+   getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
   }
 
 }
