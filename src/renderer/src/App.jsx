@@ -248,6 +248,8 @@ function getBestMove(fen, depth = 15, setCurrentEvaluation) {
         // if it's best move, update eval
         } else if (moveNum == 1) {
           console.log("setting current eval");
+          const game = new Chess(fen)
+          // setCurrentEvaluation(game.turn() == 'w' ? cp : cp * -1)
           setCurrentEvaluation(cp)
         }
       }
@@ -295,6 +297,11 @@ const analysisBoardFEN = useRef("");
 const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(false)
+const gameRef = useRef(null);
+
+useEffect(() => {
+  gameRef.current = game;
+}, [game]);
 
 // Define the onDrop function
 function onDrop(sourceSquare, targetSquare) {
@@ -336,21 +343,32 @@ function onDrop(sourceSquare, targetSquare) {
     // document.getElementById('message-display').textContent = message
     if (str == "reset game") {
       console.log("resetting game!!!!!!")
-      setGame(new Chess(openings_fen['random']));
+      setGame(new Chess());
+      console.log(gameRef.current.fen())
+      return;
     } else {
-    const move = game.move({
+    const move = gameRef.current.move({
       from: str.substring(0, 2),
       to: str.substring(2, 4),
     });
 
-    setGame(new Chess(game.fen()));
+    setGame(new Chess(gameRef.current.fen()));
 
-   getBestMove(game.fen(), 15, setCurrentEvaluation); 
+   getBestMove(gameRef.current.fen(), 15, setCurrentEvaluation); 
   }
 
-  }
+}
   
+useEffect(() => {
+  // Register the WebSocket listener once
   window.electronAPI.receive('ws-message', handleWebsocketMessage);
+  
+  // Clean up on unmount
+  return () => {
+    // If there's a way to remove the listener, do it here
+    // window.electronAPI.removeListener('ws-message', handleWebsocketMessage);
+  };
+}, []); // Empty dependency array means this only runs once on mount
 
   function displayOpening(new_opening, opening, setGame, allowDrag) {
     // re-set move text before re-render
