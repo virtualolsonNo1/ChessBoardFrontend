@@ -208,61 +208,16 @@ const openings_fen = {
   }
 
 function getBestMove(fen, depth = 15, setCurrentEvaluation) {
-  // return promise once resolve from stockfish worker in new process
-  return new Promise((resolve) => {
-    const stockfish = new Worker(new URL("stockfish.js", import.meta.url), {
-    type: "module",
-    });
-    
     console.log(fen)
     
     // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
-    stockfish.postMessage("uci");
-    stockfish.postMessage("isready");
-    stockfish.postMessage("setoption name MultiPV value 3");
-    
-    // variable to store moves stockfish returns
-    let stockfishMoves = {};
-    
-    // on message, check if it's at max depth, and if so, grab info on these lines, returning resolve with moves info after 3rd one completed
-    stockfish.onmessage = (event) => {
-      console.log(event.data);
-
-      // once final depth of analysis complete for each line, add first move and CP value to data to be returned
-      if (event.data.startsWith(`info depth ${depth}`) && event.data.includes("multipv")) {
-        // grab moveNum to check if this is final line, CP value, and UCI
-        const wordsArr = event.data.split(" ");
-        const cpIndex = wordsArr.indexOf("cp")
-        const cp = wordsArr[cpIndex + 1];
-        const moveNumIndex = wordsArr.indexOf("multipv")
-        const moveNum = wordsArr[moveNumIndex + 1]
-        const pvIndex = wordsArr.indexOf("pv")
-        const moveUCI = wordsArr[pvIndex + 1]
-        
-        // update stockfishMoves with these values
-        stockfishMoves[`move${moveNum}CP`] = cp;  
-        stockfishMoves[`move${moveNum}UCI`] = moveUCI;  
-        
-        // if this is final line, return from promise successfully
-        if (moveNum == 3) {
-          resolve(stockfishMoves);
-
-        // if it's best move, update eval
-        } else if (moveNum == 1) {
-          console.log("setting current eval");
-          const game = new Chess(fen)
-          console.log(game.turn())
-          const centipawn = game.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
-          console.log(centipawn)
-          setCurrentEvaluation(centipawn)
-        }
-      }
-    };
+    window.stockfish.sendCommand("uci");
+    window.stockfish.sendCommand("isready");
+    window.stockfish.sendCommand("setoption name MultiPV value 3");
     
     // send in FEN position for this analysis and start analyzing to depth of depth
-    stockfish.postMessage(`position fen ${fen}`)
-    stockfish.postMessage(`go depth ${depth}`)
-  });
+    window.stockfish.sendCommand(`position fen ${fen}`)
+    window.stockfish.sendCommand(`go depth ${depth}`)
 }
 
 function openLichessAnalysisBoard(fen) {
@@ -289,6 +244,7 @@ const allowDrop = useRef(false);
 const stockfishMove0 = useRef({});
 const stockfishMove1 = useRef({});
 const stockfishMove2 = useRef({});
+const stockfishMovesRef = useRef({})
 const masterMove0 = useRef("");
 const masterMove1 = useRef("");
 const masterMove2 = useRef("");
@@ -300,42 +256,77 @@ const disableAnalysisBoardButton = useRef(true);
 const analysisBoardFEN = useRef("");
 const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
-const displayMovesText = useRef(false)
+const displayMovesText = useRef(true)
 const gameRef = useRef(null);
 
 useEffect(() => {
   gameRef.current = game;
 }, [game]);
 
-// Define the onDrop function
-function onDrop(sourceSquare, targetSquare) {
-  try {
-    // Check if the move is legal
-    const move = game.move({
-      from: sourceSquare,
-      to: targetSquare,
-    });
-      // If the move is illegal, return false to revert
-      if (move === null) return false;
+  useEffect(() => {
+    // Set up listener for Stockfish output
+    const removeListener = window.stockfish.onOutput((data) => {
+      console.log(data);
+      
 
-      displayMovesText.current = true;
-      // update yourMove
-      yourMove.current = move.from + move.to;
-      // Update the game state
-      setGame(new Chess(game.fen()));
-      allowDrop.current = false;
-      if (loadingAPIResponses == false) {
-        setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-      );
+      // once final depth of analysis complete for each line, add first move and CP value to data to be returned
+      if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
+        // grab moveNum to check if this is final line, CP value, and UCI
+        const wordsArr = data.split(" ");
+        let cpIndex = wordsArr.indexOf("cp")
+        let cp = wordsArr[cpIndex + 1];
+        let moveNumIndex = wordsArr.indexOf("multipv")
+        let moveNum = wordsArr[moveNumIndex + 1]
+        let pvIndex = wordsArr.indexOf("pv")
+        let moveUCI = wordsArr[pvIndex + 1]
+        
+        // loop till all 3 best moves found and updated
+        let iter = 0
+        let mult = gameRef.current.turn() == 'w' ? 1 : -1;
+        while (moveNumIndex !== -1) {
+          switch (iter) {
+            case 0:
+              console.log("setting current eval");
+              // const game = new Chess(gameRef.current.fen())
+              console.log(gameRef.current.turn())
+              const centipawn = gameRef.current.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
+              // const centipawn = cp;
+              console.log(centipawn)
+              setCurrentEvaluation(centipawn)
+              
+              stockfishMove0.current[`CP`] = cp * mult;  
+              stockfishMove0.current[`UCI`] = moveUCI;  
+              break;
+            case 1:
+              stockfishMove1.current[`CP`] = cp * mult;  
+              stockfishMove1.current[`UCI`] = moveUCI;  
+              break;
+            case 2:
+              stockfishMove2.current[`CP`] = cp * mult;  
+              stockfishMove2.current[`UCI`] = moveUCI;  
+              break;
+          }
+          iter++;
+          moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
+          moveNum = wordsArr[moveNumIndex + 1]
+          cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
+          cp = wordsArr[cpIndex + 1];
+          pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
+          moveUCI = wordsArr[pvIndex + 1]
+          
+        }
       }
-      return true;
-    } catch (error) {
-      console.error("Error in onDrop:", error);
-      return false;
-    }
-  }
+    });
+
+    // Initialize engine with some commands
+    window.stockfish.sendCommand('uci');
+    window.stockfish.sendCommand('isready');
+
+    // Cleanup function
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, []);
   
   function handleWebsocketMessage(message) {
     let str = '';
@@ -426,7 +417,6 @@ return (
         <div>
           <Chessboard 
             position={game.fen()} 
-            onPieceDrop={onDrop} 
             arePiecesDraggable={allowDrop.current} 
             boardOrientation={chessboardOrientation.current} 
             areArrowsAllowed={allowDrop.current} 

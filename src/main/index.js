@@ -1,8 +1,55 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import * as path from 'path'
+import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import WebSocket from 'ws'
+
+// Go up one level from index.js (src/main) to src, then up again to root, then to stockfish folder
+const stockfishPath = 'C:\\Users\\virtu\\Downloads\\stockfish-windows-x86-64-avx2\\stockfish\\stockfish-windows-x86-64-avx2.exe';
+
+let stockfishProcess;
+
+// Initialize Stockfish process
+function initStockfish() {
+  try {
+    stockfishProcess = spawn(stockfishPath);
+    
+    stockfishProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('stockfish-output', output);
+      }
+    });
+
+    stockfishProcess.stderr.on('data', (data) => {
+      console.error(`Stockfish Error: ${data}`);
+    });
+
+    stockfishProcess.on('close', (code) => {
+      console.log(`Stockfish process exited with code ${code}`);
+      stockfishProcess = null;
+    });
+
+    console.log('Stockfish engine initialized successfully');
+  } catch (error) {
+    console.error('Failed to start Stockfish:', error);
+  }
+}
+
+// IPC handlers for communication with the renderer process
+ipcMain.on('stockfish-command', (_, command) => {
+  if (stockfishProcess && !stockfishProcess.killed) {
+    stockfishProcess.stdin.write(command + '\n');
+  }
+});
+
+app.on('before-quit', () => {
+  if (stockfishProcess && !stockfishProcess.killed) {
+    stockfishProcess.kill();
+  }
+});
 
 let mainWindow;
 let wss;
@@ -101,6 +148,7 @@ app.whenReady().then(() => {
   //   }
   // })
   createWindow()
+  initStockfish()
   startWebsocketServer();
 
   app.on('activate', function () {

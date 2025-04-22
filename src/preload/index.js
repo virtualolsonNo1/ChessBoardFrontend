@@ -25,6 +25,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 })
 
+contextBridge.exposeInMainWorld('stockfish', {
+  sendCommand: (command) => {
+    ipcRenderer.send('stockfish-command', command);
+  },
+  onOutput: (callback) => {
+    ipcRenderer.on('stockfish-output', (_, data) => callback(data));
+    return () => {
+      ipcRenderer.removeAllListeners('stockfish-output');
+    };
+  }
+});
+
 // Custom APIs for renderer
 const api = {}
 
