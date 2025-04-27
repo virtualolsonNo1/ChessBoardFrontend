@@ -399,21 +399,22 @@ useEffect(() => {
   }
   
 return (
-  <div className="flex flex-row gap-2 max-w-6xl mx-auto">
+  <div className="bg-blue-500 flex flex-row gap-6 mx-auto h-screen">
     {/* Add the evaluation bar - fixed width */}
     <div className="hidden md:block" style={{ width: '50px', padding: '10px', flexShrink: 0 }}>
       <EvalBar 
         evaluation={currentEvaluation} 
         isWhiteToMove={game.turn() === 'w'} 
-        height={400} 
-        width={30} 
+        height="90vh" 
+        width={50} 
       />
     </div>
     
     {/* Main content container with fixed widths */}
     <div className="flex flex-col md:flex-row gap-4 flex-1">
       {/* Chess board - fixed width */}
-      <div className="w-full md:w-auto md:flex-1" style={{ maxWidth: '500px', flexShrink: 0 }}>
+      <div className="w-[90vh]">
+        <div className="h-[90vh]" style={{maxHeight: '1000px' }}>
         <div>
           <Chessboard 
             position={game.fen()} 
@@ -424,6 +425,7 @@ return (
             animationDuration={300}
           />
         </div>
+        </div>
         {displayPlayMoveText.current && 
           <div className="text-center font-bold text-lg my-2 bg-blue-100 dark:bg-blue-900 rounded text-black dark:text-white">
             {"Please play a move and compare with the best moves!"} 
@@ -431,46 +433,46 @@ return (
         }
       </div>
       
-      {/* Move Analysis - fixed width */}
-      <div className="w-full md:w-auto md:flex-1 bg-cream-100 p-4 rounded" style={{ maxWidth: '400px', flexShrink: 0 }}>
-        <h2 className="text-xl font-bold mb-4">Move Analysis</h2> 
-        <h3 className="text-l font-bold mb-4">Your Move: {yourMove.current}</h3> 
+{/* Move Analysis - fixed width with larger text */}
+      <div className="w-full md:w-auto md:flex-1 bg-blue-500 p-6 rounded flex flex-col justify-start" style={{ maxWidth: '600px', flexShrink: 0, height: '90vh' }}>
+        <h2 className="text-5xl font-bold mb-6 text-white">Move Analysis</h2> 
+        <h3 className="text-4xl font-bold mb-5 text-white">Your Move: {yourMove.current}</h3> 
         
         {loadingAPIResponses && 
-          <div className="loader flex items-center">
-            <span className="pr-5 font-bold">Loading Best Moves</span>
+          <div className="loader flex items-center mb-4">
+            <span className="pr-5 font-bold text-3xl text-white">Loading Best Moves</span>
             <ClipLoader
-              color={"#00ff00"}
+              color={"#ffffff"}
               loading={loadingAPIResponses.current}
               override={override}
-              size={20}
+              size={28}
             />
           </div>
         }
         
         {loadingAPIResponses && 
-          <div className="pb-5">Feel Free to Play Your Move in the Meantime</div>
+          <div className="pb-5 text-3xl text-white">Feel Free to Play Your Move in the Meantime</div>
         }
         
-        <h3 className="text-l font-bold mb-4">Stockfish Best Moves</h3> 
-        <p className="text-green-500">Stockfish Move 0: {displayMovesText.current ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ","}</p>
-        <p className="text-yellow-500">Stockfish Move 1: {displayMovesText.current ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ","}</p>
-        <p className="text-orange-500">Stockfish Move 2: {displayMovesText.current ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ","}</p>
+        <h3 className="text-3xl font-bold my-5 text-white">Stockfish Best Moves</h3> 
+        <p className="text-3xl text-green-300 mb-3">Stockfish Move 0: {displayMovesText.current ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ","}</p>
+        <p className="text-3xl text-yellow-300 mb-3">Stockfish Move 1: {displayMovesText.current ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ","}</p>
+        <p className="text-3xl text-orange-300 mb-5">Stockfish Move 2: {displayMovesText.current ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ","}</p>
         
-        <h3 className="text-l font-bold mb-4">Popular Master Moves</h3> 
-        <p>Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
-        <p>Master Move 2: {displayMovesText.current ? `${masterMove1.current}` : ""}</p>
-        <p>Master Move 3: {displayMovesText.current ? `${masterMove2.current}` : ""}</p>
+        <h3 className="text-3xl font-bold my-5 text-white">Popular Master Moves</h3> 
+        <p className="text-3xl text-white mb-2">Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Master Move 2: {displayMovesText.current ? `${masterMove1.current}` : ""}</p>
+        <p className="text-3xl text-white mb-5">Master Move 3: {displayMovesText.current ? `${masterMove2.current}` : ""}</p>
         
-        <h3 className="text-l font-bold mb-4">Popular Moves over {minELO}</h3> 
-        <p>Move 0: {displayMovesText.current ? `${normieMove0.current}` : ""}</p>
-        <p>Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
-        <p>Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
+        <h3 className="text-3xl font-bold my-5 text-white">Popular Moves over {minELO}</h3> 
+        <p className="text-3xl text-white mb-2">Move 0: {displayMovesText.current ? `${normieMove0.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
+        <p className="text-3xl text-white mb-5">Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
         
         {!disableAnalysisBoardButton.current && 
           <button 
             onClick={() => openLichessAnalysisBoard(analysisBoardFEN.current)} 
-            className="mt-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            className="mt-6 bg-white hover:bg-gray-200 text-blue-700 font-bold py-3 px-6 rounded text-xl"
           >
             Go To Lichess Analysis Board
           </button>

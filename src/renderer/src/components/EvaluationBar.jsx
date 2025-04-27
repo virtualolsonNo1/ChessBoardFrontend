@@ -40,8 +40,8 @@ const EvalBar = ({evaluation = 0, }) => {
     
 return (
         <div className="eval-bar" style={{
-            width: '30px',
-            height: '400px',
+            width: '50px',
+            height: '90vh',
             backgroundColor: '#333',
             position: 'relative',
             borderRadius: '4px',
@@ -65,6 +65,7 @@ return (
                 color: barHeight > 51 ? '#333' : '#f0f0f0',
                 fontWeight: 'bold',
                 whiteSpace: 'nowrap',
+                fontSize: 'xx-large',
                 textShadow: '0px 0px 2px rgba(0,0,0,0.5)'
             }}>
                 {Math.round((barHeight - 50) / 10 * 100) / 100}

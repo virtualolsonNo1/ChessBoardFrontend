@@ -6,8 +6,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import WebSocket from 'ws'
 
-const platform = require('os')
+const os = require('os')
+const platform = os.platform()
 
+console.log("platform: ", platform)
 // Go up one level from index.js (src/main) to src, then up again to root, then to stockfish folder
 const stockfishPath = platform == "win32" ? 'C:\\Users\\virtu\\Downloads\\stockfish-windows-x86-64-avx2\\stockfish\\stockfish-windows-x86-64-avx2.exe': "./stockfish/stockfishLinux/stockfish-ubuntu-x86-64-avx2"
 
