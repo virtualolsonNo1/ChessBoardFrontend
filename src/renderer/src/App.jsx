@@ -64,9 +64,7 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
       window.stockfish.sendCommand(`position fen ${fen}`)
       window.stockfish.sendCommand(`go depth ${depth}`)
 
-      let iter = 0
-
-      const removeListener = window.stockfish.onOutput((data) => {
+      window.stockfish.onOutput((data) => {
         console.log(data);
         
 
@@ -82,6 +80,7 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
           let moveUCI = wordsArr[pvIndex + 1]
           
           // loop till all 3 best moves found and updated
+          let iter = 0
           let mult = gameRef.current.turn() == 'w' ? 1 : -1;
           while (moveNumIndex !== -1) {
             switch (iter) {
@@ -104,6 +103,7 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
               case 2:
                 stockfishMove2.current[`CP`] = cp * mult;  
                 stockfishMove2.current[`UCI`] = moveUCI;  
+                resolve(true);
                 break;
             }
             iter++;
@@ -117,12 +117,6 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
           }
         }
       });
-
-      while (!(iter >= 2)) {
-        removeListener();
-        resolve(true);
-      }
-      resolve(true);
 
     });
 }
