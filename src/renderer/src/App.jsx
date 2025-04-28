@@ -64,7 +64,9 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
       window.stockfish.sendCommand(`position fen ${fen}`)
       window.stockfish.sendCommand(`go depth ${depth}`)
 
-      window.stockfish.onOutput((data) => {
+      let iter = 0
+
+      const removeListener = window.stockfish.onOutput((data) => {
         console.log(data);
         
 
@@ -80,7 +82,6 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
           let moveUCI = wordsArr[pvIndex + 1]
           
           // loop till all 3 best moves found and updated
-          let iter = 0
           let mult = gameRef.current.turn() == 'w' ? 1 : -1;
           while (moveNumIndex !== -1) {
             switch (iter) {
@@ -103,7 +104,6 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
               case 2:
                 stockfishMove2.current[`CP`] = cp * mult;  
                 stockfishMove2.current[`UCI`] = moveUCI;  
-                resolve(true);
                 break;
             }
             iter++;
@@ -117,6 +117,12 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
           }
         }
       });
+
+      while (!(iter >= 2)) {
+        removeListener();
+        resolve(true);
+      }
+      resolve(true);
 
     });
 }
@@ -158,11 +164,16 @@ const analysisBoardFEN = useRef("");
 const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(true)
+const [displayEvalBar, setDisplayEvalBar] = useState(true);
 const gameRef = useRef(null);
 
 useEffect(() => {
   gameRef.current = game;
 }, [game]);
+
+function toggleEvalBar() {
+  setDisplayEvalBar(!displayEvalBar);
+}
 
   
   async function handleWebsocketMessage(message) {
@@ -273,13 +284,13 @@ useEffect(() => {
 return (
   <div className="bg-blue-500 flex flex-row gap-6 mx-auto h-screen">
     {/* Add the evaluation bar - fixed width */}
-    <div className="hidden md:block" style={{ width: '50px', padding: '10px', flexShrink: 0 }}>
-      <EvalBar 
+    <div className="" style={{ width: '50px', padding: '10px', flexShrink: 0 }}>
+      {displayEvalBar && <EvalBar 
         evaluation={currentEvaluation} 
         isWhiteToMove={game.turn() === 'w'} 
         height="90vh" 
         width={50} 
-      />
+      />}
     </div>
     
     {/* Main content container with fixed widths */}
@@ -305,7 +316,7 @@ return (
         }
       </div>
       
-{/* Move Analysis - fixed width with larger text */}
+      {/* Move Analysis - fixed width with larger text */}
       <div className="w-full md:w-auto md:flex-1 bg-blue-500 p-6 rounded flex flex-col justify-start" style={{ maxWidth: '600px', flexShrink: 0, height: '90vh' }}>
         <h2 className="text-5xl font-bold mb-6 text-white">Move Analysis</h2> 
         <h3 className="text-4xl font-bold mb-5 text-white">Your Move: {yourMove.current}</h3> 
@@ -351,6 +362,12 @@ return (
         }
       </div>
     </div>
+    <div className="flex-row">
+      <input type="checkbox" id="showEvalBarCheckbox" onChange={toggleEvalBar} />
+    </div>
+    <label htmlFor="showEvalBarCheckbox" className="ml-2 text-white">
+      Toggle Evaluation Bar
+    </label>
   </div>
 )
 }
