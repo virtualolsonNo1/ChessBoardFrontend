@@ -34,6 +34,7 @@ const openings_fen = {
 
 
   async function getMasterMoves(FEN) {
+    console.log("about to grab master moves")
     const response = await fetch(`/lichess/masters?fen=${FEN}`).catch(error => {console.log("INVALID DATA2")})
     return await response.json()
   }
@@ -44,180 +45,80 @@ const openings_fen = {
   }
 
   async function getNormieMoves(FEN, minELO) {
-    
+    console.log("about to grab normie moves")
     // GRAB NORMIE MOVES
-    const response = await fetch(`/lichess/lichess?fen=${FEN}&ratings=${minELO}`).catch(error => {console.log("INVALID DATA2")});
+    const response = await fetch(`/lichess/lichess?fen=${FEN}`).catch(error => {console.log("INVALID DATA2")});
     return await response.json();
   }
 
-  async function loadRandomPosition(chessboardOrientation, setGame, opening, minELO, allowDrop, stockfishMove0, stockfishMove1, stockfishMove2, masterMove0, masterMove1, masterMove2, normieMove0, normieMove1, normieMove2, yourMove, movesFoundLate, setMovesFoundLate, setRandomPositionDisabled, loadingAPIResponses, setLoadingAPIResponses, disableAnalysisBoardButton, analysisBoardFEN, displayPlayMoveText, setArrows, displayMovesText, setCurrentEvaluation) {
-    // re-set move text
-    stockfishMove0.current["UCI"] = "";
-    stockfishMove0.current["CP"] = "";
-    stockfishMove1.current["UCI"] = "";
-    stockfishMove1.current["CP"] = "";
-    stockfishMove2.current["UCI"] = "";
-    stockfishMove2.current["CP"] = "";
-    masterMove0.current = "";
-    masterMove1.current = "";
-    masterMove2.current = "";
-    normieMove0.current = "";
-    normieMove1.current = "";
-    normieMove2.current = "";
-    yourMove.current = ""
-    disableAnalysisBoardButton.current = true;
-    displayPlayMoveText.current = false;
-    displayMovesText.current = false;
-
-    // re-render current opening before displaying new position
-
-    setArrows([['', '', ''],
-              ['', '', ''],
-              ['', '', '']]);
-    setRandomPositionDisabled(true);
-    setGame(new Chess(openings_fen[opening.current]))
-
-    // get random numbers of moves to go ahead
-    let numMoves = random.integer(0, 3)
-    numMoves = (numMoves * 2) + 1
-
-    // if opening is random want truly random move, not just random position for that side
-    if (opening.current == "random") {
-      numMoves = random.integer(1, 10);
-    }
-    console.log("Num random moves: " + numMoves)
-    
-    let position_fen = openings_fen[opening.current]
-    let board = new Chess(position_fen) 
-    
-    // loop through numMoves times, grabbing the most popular moves, choosing a random one, and playing it
-    for (let i = 0; i < numMoves; i++) {
-      // const response = await fetch(`/lichess/masters?fen=${openings_fen[opening]}`).catch(error => {console.log("INVALID DATA2")})
-      const response = await fetch(`/lichess/lichess?fen=${position_fen}&ratings=${minELO}`).catch(error => {console.log("INVALID DATA2")})
-      const data =  await response.json()
-      let moveNum = random.integer(0, data.moves.length - 1)
-
-      // TODO: REMOVE LATER, TEMP FIX TO WORSE PROBLEM!!!!!!!!!!!!!!!!
-      if (moveNum > 3) {
-        moveNum = random.integer(0, 3);
-      }
-      
-      console.log("Random move to choose: " + moveNum)
-      
-      console.log(data)
-      console.log(data.moves[moveNum].uci)
-
-      let fromSquare = data.moves[moveNum].uci.substring(0, 2);
-      let toSquare = data.moves[moveNum].uci.substring(2, 4);
-      
-      // check for castling, as notation is different between javascript chess library to/from square and lichess uci response
-      if (data.moves[moveNum].san == 'O-O') {
-        if (fromSquare == "e1") {
-          console.log("WHITE SHORT CASTLING!!!!!!!!!")
-          toSquare = "g1";
-        } else if (fromSquare == "e8") {
-          console.log("BLACK SHORT CASTLING!!!!!!!!!")
-          toSquare = "g8";
-        }
-
-      } else if (data.moves[moveNum].san == 'O-O-O') {
-        if (fromSquare == "e1") {
-          console.log("WHITE LONG CASTLING!!!!!!!!!")
-          toSquare = "c1";
-        } else if (fromSquare == "e8") {
-          console.log("BLACK LONG CASTLING!!!!!!!!!")
-          toSquare = "c8";
-        }
-        
-      }         
-
-      // play move on the board
-        board.move({
-          from: fromSquare,
-          to: toSquare,
-        });
-
-      position_fen = board.fen()
-      // TODO: DO WE WANT TO TRY TO ANIMATE OUT MOVES? WASN"T SMOOTH PREVIOUSLY AS TWAS A LOT OF RENDERING!!!
-      // setGame(new Chess(position_fen))
-
-    }
-
-    chessboardOrientation.current = board.turn() == 'w' ? 'white' : 'black';
-    analysisBoardFEN.current = position_fen;
-    disableAnalysisBoardButton.current = false;
-    displayPlayMoveText.current = true;
-    
-    // set updated game
-    setGame(new Chess(position_fen))
-
-    // allow player to click button again
-    setRandomPositionDisabled(false);
-    
-    // allow pieces to be moved post-re-render with new position
-    allowDrop.current = true;
-
-    setLoadingAPIResponses(true); 
-    
-    // after re-render, grab info for best moves on the board
-    // grab all best moves, doing so in parallel using Promise.all so io time on one starts others
-    const [masterMoves, normieMoves, stockfishMoves] = await Promise.all([
-      getMasterMoves(position_fen),
-      getNormieMoves(position_fen, minELO),
-      getBestMoves(position_fen, stockfishMove0, stockfishMove1, stockfishMove2, setCurrentEvaluation)
-    ]);
-    
-
-    setLoadingAPIResponses(false); 
-
-    // set timeout so that re-render occurrs before these are updated
-    // update master best moves text
-    console.log(masterMoves.moves[0])
-    console.log(masterMoves.moves[1])
-    console.log(masterMoves.moves[2])
-    masterMove0.current = masterMoves.moves[0] != undefined ? masterMoves.moves[0].uci : "No move found";
-    masterMove1.current = masterMoves.moves[1] != undefined ? masterMoves.moves[1].uci : "No move found";
-    masterMove2.current = masterMoves.moves[2] != undefined ? masterMoves.moves[2].uci : "No move found";
-
-    // update normie best moves
-    console.log(normieMoves.moves[0])
-    console.log(normieMoves.moves[1])
-    console.log(normieMoves.moves[2])
-    normieMove0.current = normieMoves.moves[0] != undefined ? normieMoves.moves[0].uci : "No move found";
-    normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
-    normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
-
-    console.log("BEST MOVE: ", stockfishMoves);
-    stockfishMove0.current["UCI"] = stockfishMoves.move1UCI;
-    stockfishMove0.current["CP"] = stockfishMoves.move1CP;
-    stockfishMove1.current["UCI"] = stockfishMoves.move2UCI;
-    stockfishMove1.current["CP"] = stockfishMoves.move2CP;
-    stockfishMove2.current["UCI"] = stockfishMoves.move3UCI;
-    stockfishMove2.current["CP"] = stockfishMoves.move3CP;
-    
-    // re-render if person already played move so best moves still show up
-    if (allowDrop.current == false) {
-      setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-    );
-      // setMovesFoundLate(movesFoundLate + 1);
-      console.log("movesFoundLate: ", movesFoundLate);
-    }
-    console.log(allowDrop.current);
-  }
-
-function getBestMove(fen, depth = 15, setCurrentEvaluation) {
+function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2) {
     console.log(fen)
     
-    // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
-    window.stockfish.sendCommand("uci");
-    window.stockfish.sendCommand("isready");
-    window.stockfish.sendCommand("setoption name MultiPV value 3");
-    
-    // send in FEN position for this analysis and start analyzing to depth of depth
-    window.stockfish.sendCommand(`position fen ${fen}`)
-    window.stockfish.sendCommand(`go depth ${depth}`)
+    return new Promise((resolve) => {
+      // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
+      window.stockfish.sendCommand("uci");
+      window.stockfish.sendCommand("isready");
+      window.stockfish.sendCommand("setoption name MultiPV value 3");
+      
+      // send in FEN position for this analysis and start analyzing to depth of depth
+      window.stockfish.sendCommand(`position fen ${fen}`)
+      window.stockfish.sendCommand(`go depth ${depth}`)
+
+      window.stockfish.onOutput((data) => {
+        console.log(data);
+        
+
+        // once final depth of analysis complete for each line, add first move and CP value to data to be returned
+        if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
+          // grab moveNum to check if this is final line, CP value, and UCI
+          const wordsArr = data.split(" ");
+          let cpIndex = wordsArr.indexOf("cp")
+          let cp = wordsArr[cpIndex + 1];
+          let moveNumIndex = wordsArr.indexOf("multipv")
+          let moveNum = wordsArr[moveNumIndex + 1]
+          let pvIndex = wordsArr.indexOf("pv")
+          let moveUCI = wordsArr[pvIndex + 1]
+          
+          // loop till all 3 best moves found and updated
+          let iter = 0
+          let mult = gameRef.current.turn() == 'w' ? 1 : -1;
+          while (moveNumIndex !== -1) {
+            switch (iter) {
+              case 0:
+                console.log("setting current eval");
+                // const game = new Chess(gameRef.current.fen())
+                console.log(gameRef.current.turn())
+                const centipawn = gameRef.current.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
+                // const centipawn = cp;
+                console.log(centipawn)
+                setCurrentEvaluation(centipawn)
+                
+                stockfishMove0.current[`CP`] = cp * mult;  
+                stockfishMove0.current[`UCI`] = moveUCI;  
+                break;
+              case 1:
+                stockfishMove1.current[`CP`] = cp * mult;  
+                stockfishMove1.current[`UCI`] = moveUCI;  
+                break;
+              case 2:
+                stockfishMove2.current[`CP`] = cp * mult;  
+                stockfishMove2.current[`UCI`] = moveUCI;  
+                resolve(true);
+                break;
+            }
+            iter++;
+            moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
+            moveNum = wordsArr[moveNumIndex + 1]
+            cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
+            cp = wordsArr[cpIndex + 1];
+            pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
+            moveUCI = wordsArr[pvIndex + 1]
+            
+          }
+        }
+      });
+
+    });
 }
 
 function openLichessAnalysisBoard(fen) {
@@ -263,72 +164,8 @@ useEffect(() => {
   gameRef.current = game;
 }, [game]);
 
-  useEffect(() => {
-    // Set up listener for Stockfish output
-    const removeListener = window.stockfish.onOutput((data) => {
-      console.log(data);
-      
-
-      // once final depth of analysis complete for each line, add first move and CP value to data to be returned
-      if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
-        // grab moveNum to check if this is final line, CP value, and UCI
-        const wordsArr = data.split(" ");
-        let cpIndex = wordsArr.indexOf("cp")
-        let cp = wordsArr[cpIndex + 1];
-        let moveNumIndex = wordsArr.indexOf("multipv")
-        let moveNum = wordsArr[moveNumIndex + 1]
-        let pvIndex = wordsArr.indexOf("pv")
-        let moveUCI = wordsArr[pvIndex + 1]
-        
-        // loop till all 3 best moves found and updated
-        let iter = 0
-        let mult = gameRef.current.turn() == 'w' ? 1 : -1;
-        while (moveNumIndex !== -1) {
-          switch (iter) {
-            case 0:
-              console.log("setting current eval");
-              // const game = new Chess(gameRef.current.fen())
-              console.log(gameRef.current.turn())
-              const centipawn = gameRef.current.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
-              // const centipawn = cp;
-              console.log(centipawn)
-              setCurrentEvaluation(centipawn)
-              
-              stockfishMove0.current[`CP`] = cp * mult;  
-              stockfishMove0.current[`UCI`] = moveUCI;  
-              break;
-            case 1:
-              stockfishMove1.current[`CP`] = cp * mult;  
-              stockfishMove1.current[`UCI`] = moveUCI;  
-              break;
-            case 2:
-              stockfishMove2.current[`CP`] = cp * mult;  
-              stockfishMove2.current[`UCI`] = moveUCI;  
-              break;
-          }
-          iter++;
-          moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
-          moveNum = wordsArr[moveNumIndex + 1]
-          cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
-          cp = wordsArr[cpIndex + 1];
-          pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
-          moveUCI = wordsArr[pvIndex + 1]
-          
-        }
-      }
-    });
-
-    // Initialize engine with some commands
-    window.stockfish.sendCommand('uci');
-    window.stockfish.sendCommand('isready');
-
-    // Cleanup function
-    return () => {
-      if (removeListener) removeListener();
-    };
-  }, []);
   
-  function handleWebsocketMessage(message) {
+  async function handleWebsocketMessage(message) {
     let str = '';
     for (let i = 0; i < message.length; i++) {
       str += String.fromCharCode(message[i]);
@@ -350,7 +187,42 @@ useEffect(() => {
 
     setGame(new Chess(gameRef.current.fen()));
 
-   getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
+    console.log("about to start all promises")
+    const [masterMoves, normieMoves, stockfishResult] = await Promise.all([
+      getMasterMoves(gameRef.current.fen()),
+      getNormieMoves(gameRef.current.fen(), 2000),
+      getBestStockfishMoves(gameRef, gameRef.current.fen(), 20, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2)
+    ]);
+    // getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
+    console.log("exited promises")
+
+    
+    // update master best moves text
+    console.log(masterMoves.moves[0])
+    console.log(masterMoves.moves[1])
+    console.log(masterMoves.moves[2])
+    masterMove0.current = masterMoves.moves[0] != undefined ? masterMoves.moves[0].uci : "No move found";
+    masterMove1.current = masterMoves.moves[1] != undefined ? masterMoves.moves[1].uci : "No move found";
+    masterMove2.current = masterMoves.moves[2] != undefined ? masterMoves.moves[2].uci : "No move found";
+
+    // update normie best moves
+    console.log(normieMoves.moves[0])
+    console.log(normieMoves.moves[1])
+    console.log(normieMoves.moves[2])
+    normieMove0.current = normieMoves.moves[0] != undefined ? normieMoves.moves[0].uci : "No move found";
+    normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
+    normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
+
+    // re-render if person already played move so best moves still show up
+    if (allowDrop.current == false) {
+      setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+    );
+      // setMovesFoundLate(movesFoundLate + 1);
+      // console.log("movesFoundLate: ", movesFoundLate);
+    }
+    // console.log(allowDrop.current);
   }
 
 }
