@@ -2,11 +2,14 @@ import { useState, useRef, useEffect } from 'react'
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Random } from 'random-js';
+import { Mutex } from 'async-mutex';
 import EvalBar from './components/EvaluationBar';
 
 import stockfish from "stockfish.js";
 import ClipLoader from "react-spinners/ClipLoader";
 const random = new Random()
+
+const movesMutex = new Mutex();
 
 const override = {
   display: "block",
@@ -50,12 +53,13 @@ const openings_fen = {
     const response = await fetch(`/lichess/lichess?fen=${FEN}`).catch(error => {console.log("INVALID DATA2")});
     return await response.json();
   }
-
+let removeListeners = null;
 function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2) {
     console.log(fen)
     
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
+      // window.stockfish.sendCommand("stop");
       window.stockfish.sendCommand("uci");
       window.stockfish.sendCommand("isready");
       window.stockfish.sendCommand("setoption name MultiPV value 3");
@@ -64,7 +68,11 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
       window.stockfish.sendCommand(`position fen ${fen}`)
       window.stockfish.sendCommand(`go depth ${depth}`)
 
-      window.stockfish.onOutput((data) => {
+      const turn = gameRef.current.turn();
+      
+      // TODO: MOVE THIS HIGHER????!!!!!!
+      const release = await movesMutex.acquire()
+      removeListeners = window.stockfish.onOutput((data) => {
         console.log(data);
         
 
@@ -81,14 +89,14 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
           
           // loop till all 3 best moves found and updated
           let iter = 0
-          let mult = gameRef.current.turn() == 'w' ? 1 : -1;
+          let mult = turn == 'w' ? 1 : -1;
           while (moveNumIndex !== -1) {
             switch (iter) {
               case 0:
                 console.log("setting current eval");
                 // const game = new Chess(gameRef.current.fen())
-                console.log(gameRef.current.turn())
-                const centipawn = gameRef.current.turn() == 'w' ? cp : (parseInt(cp) * -1).toString()
+                console.log(turn)
+                const centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
                 // const centipawn = cp;
                 console.log(centipawn)
                 setCurrentEvaluation(centipawn)
@@ -103,6 +111,7 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
               case 2:
                 stockfishMove2.current[`CP`] = cp * mult;  
                 stockfishMove2.current[`UCI`] = moveUCI;  
+                release();
                 resolve(true);
                 break;
             }
@@ -115,6 +124,9 @@ function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, s
             moveUCI = wordsArr[pvIndex + 1]
             
           }
+        } else if (data.includes && data.includes("readyok")) {
+          console.log("stopped, needs to start")
+          resolve(false);
         }
       });
 
@@ -170,21 +182,24 @@ function toggleEvalBar() {
 }
 
   
-  async function handleWebsocketMessage(message) {
-    let str = '';
-    for (let i = 0; i < message.length; i++) {
-      str += String.fromCharCode(message[i]);
-    }
-    console.log('Received from WebSocket:', str)
-    // Update UI with the message
-    // document.getElementById('message-display').textContent = message
-    if (str == "reset game") {
-      console.log("resetting game!!!!!!")
-      setGame(new Chess());
-      console.log(gameRef.current.fen())
-      setCurrentEvaluation(0);
-      return;
-    } else {
+async function handleWebsocketMessage(message) {
+  let str = '';
+  for (let i = 0; i < message.length; i++) {
+    str += String.fromCharCode(message[i]);
+  }
+  console.log('Received from WebSocket:', str)
+  // Update UI with the message
+  // document.getElementById('message-display').textContent = message
+  if (str == "reset game") {
+    console.log("resetting game!!!!!!")
+    setGame(new Chess());
+    console.log(gameRef.current.fen())
+    setCurrentEvaluation(0);
+    return;
+  } else {
+
+    // TODO: TEST WITH THIS AS WELL AS try to find fix for super quick play and listener b/w issues due to wrong listener being alive
+      // window.stockfish.sendCommand("stop");
     const move = gameRef.current.move({
       from: str.substring(0, 2),
       to: str.substring(2, 4),
@@ -199,36 +214,39 @@ function toggleEvalBar() {
       getBestStockfishMoves(gameRef, gameRef.current.fen(), 20, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2)
     ]);
     // getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
-    console.log("exited promises")
-
+    console.log(stockfishResult)
+    if (stockfishResult) {
+      // TODO: IS THERE A BETTER WAY OF DOING THIS?????!!! removing all listeners seems heinous and I'd like for listeners to die always after their usefulness
+      removeListeners();
     
-    // update master best moves text
-    console.log(masterMoves.moves[0])
-    console.log(masterMoves.moves[1])
-    console.log(masterMoves.moves[2])
-    masterMove0.current = masterMoves.moves[0] != undefined ? masterMoves.moves[0].uci : "No move found";
-    masterMove1.current = masterMoves.moves[1] != undefined ? masterMoves.moves[1].uci : "No move found";
-    masterMove2.current = masterMoves.moves[2] != undefined ? masterMoves.moves[2].uci : "No move found";
+    
+      // update master best moves text
+      console.log(masterMoves.moves[0])
+      console.log(masterMoves.moves[1])
+      console.log(masterMoves.moves[2])
+      masterMove0.current = masterMoves.moves[0] != undefined ? masterMoves.moves[0].uci : "No move found";
+      masterMove1.current = masterMoves.moves[1] != undefined ? masterMoves.moves[1].uci : "No move found";
+      masterMove2.current = masterMoves.moves[2] != undefined ? masterMoves.moves[2].uci : "No move found";
 
-    // update normie best moves
-    console.log(normieMoves.moves[0])
-    console.log(normieMoves.moves[1])
-    console.log(normieMoves.moves[2])
-    normieMove0.current = normieMoves.moves[0] != undefined ? normieMoves.moves[0].uci : "No move found";
-    normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
-    normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
+      // update normie best moves
+      console.log(normieMoves.moves[0])
+      console.log(normieMoves.moves[1])
+      console.log(normieMoves.moves[2])
+      normieMove0.current = normieMoves.moves[0] != undefined ? normieMoves.moves[0].uci : "No move found";
+      normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
+      normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
-    // re-render if person already played move so best moves still show up
-    if (allowDrop.current == false) {
-      setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-    );
-      // setMovesFoundLate(movesFoundLate + 1);
-      // console.log("movesFoundLate: ", movesFoundLate);
+      // re-render if person already played move so best moves still show up
+      if (allowDrop.current == false) {
+        setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+        );
+
+      } 
     }
-    // console.log(allowDrop.current);
   }
+    // console.log(allowDrop.current);
 
 }
   
