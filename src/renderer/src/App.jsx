@@ -8,7 +8,10 @@ import EvalBar from './components/EvaluationBar';
 import stockfish from "stockfish.js";
 import ClipLoader from "react-spinners/ClipLoader";
 const random = new Random()
+let prevFEN = null;
 
+// Create a global map to store promises by position
+const positionPromises = new Map();
 const movesMutex = new Mutex();
 
 const override = {
@@ -55,82 +58,29 @@ const openings_fen = {
   }
 let removeListeners = null;
 function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2) {
-    console.log(fen)
+  console.log(fen);
+  
+  return new Promise(async (resolve) => {
     
-    return new Promise(async (resolve) => {
-      // post message to use uci format, check if stockfish is ready, and grab top 3 moves/lines
-      // window.stockfish.sendCommand("stop");
-      window.stockfish.sendCommand("uci");
-      window.stockfish.sendCommand("isready");
-      window.stockfish.sendCommand("setoption name MultiPV value 3");
-      
-      // send in FEN position for this analysis and start analyzing to depth of depth
-      window.stockfish.sendCommand(`position fen ${fen}`)
-      window.stockfish.sendCommand(`go depth ${depth}`)
-
-      const turn = gameRef.current.turn();
-      
-      // TODO: MOVE THIS HIGHER????!!!!!!
-      const release = await movesMutex.acquire()
-      removeListeners = window.stockfish.onOutput((data) => {
-        console.log(data);
-        
-
-        // once final depth of analysis complete for each line, add first move and CP value to data to be returned
-        if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
-          // grab moveNum to check if this is final line, CP value, and UCI
-          const wordsArr = data.split(" ");
-          let cpIndex = wordsArr.indexOf("cp")
-          let cp = wordsArr[cpIndex + 1];
-          let moveNumIndex = wordsArr.indexOf("multipv")
-          let moveNum = wordsArr[moveNumIndex + 1]
-          let pvIndex = wordsArr.indexOf("pv")
-          let moveUCI = wordsArr[pvIndex + 1]
-          
-          // loop till all 3 best moves found and updated
-          let iter = 0
-          let mult = turn == 'w' ? 1 : -1;
-          while (moveNumIndex !== -1) {
-            switch (iter) {
-              case 0:
-                console.log("setting current eval");
-                // const game = new Chess(gameRef.current.fen())
-                console.log(turn)
-                const centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-                // const centipawn = cp;
-                console.log(centipawn)
-                setCurrentEvaluation(centipawn)
-                
-                stockfishMove0.current[`CP`] = cp * mult;  
-                stockfishMove0.current[`UCI`] = moveUCI;  
-                break;
-              case 1:
-                stockfishMove1.current[`CP`] = cp * mult;  
-                stockfishMove1.current[`UCI`] = moveUCI;  
-                break;
-              case 2:
-                stockfishMove2.current[`CP`] = cp * mult;  
-                stockfishMove2.current[`UCI`] = moveUCI;  
-                release();
-                resolve(true);
-                break;
-            }
-            iter++;
-            moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
-            moveNum = wordsArr[moveNumIndex + 1]
-            cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
-            cp = wordsArr[cpIndex + 1];
-            pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
-            moveUCI = wordsArr[pvIndex + 1]
-            
-          }
-        } else if (data.includes && data.includes("readyok")) {
-          console.log("stopped, needs to start")
-          resolve(false);
-        }
-      });
-
+    // Store the promise resolvers
+    positionPromises.set(fen, {
+      resolve,
+      turn: gameRef.current.turn(),
+      setCurrentEvaluation,
+      stockfishMove0,
+      stockfishMove1,
+      stockfishMove2
     });
+    
+    // Initialize the engine and start analysis
+    window.stockfish.sendCommand("uci");
+    window.stockfish.sendCommand("isready");
+    window.stockfish.sendCommand("setoption name MultiPV value 3");
+    window.stockfish.sendCommand(`position fen ${fen}`);
+
+    prevFEN = gameRef.current.fen();
+    window.stockfish.sendCommand(`go depth ${depth}`);
+  });
 }
 
 function openLichessAnalysisBoard(fen) {
@@ -171,7 +121,96 @@ const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(true)
 const [displayEvalBar, setDisplayEvalBar] = useState(true);
-const gameRef = useRef(null);
+const gameRef = useRef(game);
+
+
+// Set up the listener once, outside the function
+let stockfishListener = null;
+
+function setupStockfishListener() {
+  if (stockfishListener) return; // Only set up once
+  
+  stockfishListener = window.stockfish.onOutput((data) => {
+    console.log(data);
+    
+    if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
+      const fen = prevFEN;
+      
+      // Get the promise resolvers for this position
+      const promiseData = positionPromises.get(fen);
+      console.log("Promise data: ", promiseData)
+      if (!promiseData) return;
+      
+      const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
+      
+      // Parse the data
+      const wordsArr = data.split(" ");
+      let cpIndex = wordsArr.indexOf("cp");
+      let cp = wordsArr[cpIndex + 1];
+      let moveNumIndex = wordsArr.indexOf("multipv");
+      let moveNum = wordsArr[moveNumIndex + 1];
+      let pvIndex = wordsArr.indexOf("pv");
+      let moveUCI = wordsArr[pvIndex + 1];
+      
+      // Process the moves
+      let iter = 0;
+      let mult = turn == 'w' ? 1 : -1;
+      
+      while (moveNumIndex !== -1) {
+        switch (iter) {
+          case 0:
+            const centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+            setCurrentEvaluation(centipawn);
+            
+            stockfishMove0.current[`CP`] = cp * mult;  
+            stockfishMove0.current[`UCI`] = moveUCI;  
+            break;
+          case 1:
+            stockfishMove1.current[`CP`] = cp * mult;  
+            stockfishMove1.current[`UCI`] = moveUCI;  
+            break;
+          case 2:
+            stockfishMove2.current[`CP`] = cp * mult;  
+            stockfishMove2.current[`UCI`] = moveUCI;  
+            
+            // Clean up and resolve
+            positionPromises.delete(fen);
+            resolve(true);
+            break;
+        }
+        
+        iter++;
+        moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
+        if (moveNumIndex === -1) break;
+        
+        moveNum = wordsArr[moveNumIndex + 1]
+        cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
+        cp = wordsArr[cpIndex + 1];
+        pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
+        moveUCI = wordsArr[pvIndex + 1]
+      }
+      for (otherFen in positionPromises.keys()) {
+        promiseData = positionPromises.get(otherFen)
+        const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
+        resolve(false);
+        positionPromises.delete(otherFen)
+      }
+      
+      // TODO: PROBABLY USELESS??????!!!!!!!!!
+    } else if (data.includes && data.includes("readyok")) {
+      for (otherFen in positionPromises.keys()) {
+        if (otherFen != lastFEN) {
+          promiseData = positionPromises.get(otherFen)
+          const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
+          resolve(false);
+          positionPromises.delete(otherFen)
+        }
+      }
+    }
+    });
+}
+
+// setupStockfishListener();
 
 useEffect(() => {
   gameRef.current = game;
@@ -197,6 +236,8 @@ async function handleWebsocketMessage(message) {
     setCurrentEvaluation(0);
     return;
   } else {
+    // stop any previous search
+    window.stockfish.sendCommand("stop");
 
     // TODO: TEST WITH THIS AS WELL AS try to find fix for super quick play and listener b/w issues due to wrong listener being alive
       // window.stockfish.sendCommand("stop");
@@ -217,7 +258,7 @@ async function handleWebsocketMessage(message) {
     console.log(stockfishResult)
     if (stockfishResult) {
       // TODO: IS THERE A BETTER WAY OF DOING THIS?????!!! removing all listeners seems heinous and I'd like for listeners to die always after their usefulness
-      removeListeners();
+      // removeListeners();
     
     
       // update master best moves text
@@ -253,7 +294,7 @@ async function handleWebsocketMessage(message) {
 useEffect(() => {
   // Register the WebSocket listener once
   window.electronAPI.receive('ws-message', handleWebsocketMessage);
-  
+  setupStockfishListener();
   // Clean up on unmount
   return () => {
     // If there's a way to remove the listener, do it here
