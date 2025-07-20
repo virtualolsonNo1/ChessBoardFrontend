@@ -93,21 +93,23 @@ function openLichessAnalysisBoard(fen) {
 function App() {
 const [game, setGame] = useState(new Chess());
 const [minELO, setMinELO] = useState("1800");
-const [movesFoundLate, setMovesFoundLate] = useState(0);
-const [randomPositionDisabled, setRandomPositionDisabled] = useState(false);
 const [loadingAPIResponses, setLoadingAPIResponses] = useState(false);
 const [arrows, setArrows] = useState([
   ['', '', ''],
   ['', '', ''],
   ['', '', '']
 ]);
+const [oldArrows, setOldArrows] = useState([
+  ['', '', ''],
+  ['', '', ''],
+  ['', '', '']
+]);
+
 const [currentEvaluation, setCurrentEvaluation] = useState(0);
-const opening = useRef("random");
-const allowDrop = useRef(false);
+
 const stockfishMove0 = useRef({});
 const stockfishMove1 = useRef({});
 const stockfishMove2 = useRef({});
-const stockfishMovesRef = useRef({})
 const masterMove0 = useRef("");
 const masterMove1 = useRef("");
 const masterMove2 = useRef("");
@@ -121,6 +123,7 @@ const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(true)
 const [displayEvalBar, setDisplayEvalBar] = useState(true);
+const [displayArrows, setDisplayArrows] = useState(true);
 const gameRef = useRef(game);
 
 
@@ -218,6 +221,25 @@ useEffect(() => {
 
 function toggleEvalBar() {
   setDisplayEvalBar(!displayEvalBar);
+
+  if(displayEvalBar == false) {
+    setOldArrows(
+      arrows
+    );
+    setArrows([
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']]
+    );
+  } else {
+    setArrows(oldArrows); 
+    setOldArrows([
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']]
+    );
+  }
+  console.log(arrows)
 }
 
   
@@ -232,6 +254,11 @@ async function handleWebsocketMessage(message) {
   if (str == "reset game") {
     console.log("resetting game!!!!!!")
     setGame(new Chess());
+    setArrows(
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']
+    );
     console.log(gameRef.current.fen())
     setCurrentEvaluation(0);
     return;
@@ -277,17 +304,14 @@ async function handleWebsocketMessage(message) {
       normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
-      // re-render if person already played move so best moves still show up
-      if (allowDrop.current == false) {
-        setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-        );
+      // update arrows
+      setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+      );
 
-      } 
     }
   }
-    // console.log(allowDrop.current);
 
 }
   
@@ -302,38 +326,6 @@ useEffect(() => {
   };
 }, []); // Empty dependency array means this only runs once on mount
 
-  function displayOpening(new_opening, opening, setGame, allowDrag) {
-    // re-set move text before re-render
-    stockfishMove0.current["UCI"] = "";
-    stockfishMove0.current["CP"] = "";
-    stockfishMove1.current["UCI"] = "";
-    stockfishMove1.current["CP"] = "";
-    stockfishMove2.current["UCI"] = "";
-    stockfishMove2.current["CP"] = "";
-    masterMove0.current = "";
-    masterMove1.current = "";
-    masterMove2.current = "";
-    normieMove0.current = "";
-    normieMove1.current = "";
-    normieMove2.current = "";
-    yourMove.current = "";
-    disableAnalysisBoardButton.current = true;
-    displayPlayMoveText.current = false;
-    displayMovesText.current = false;
-
-    opening.current = new_opening;
-    // Update the game state
-    console.log(opening.current)
-    console.log(openings_fen[opening.current])
-
-    allowDrag.current = false
-
-    setArrows([['', '', ''],
-              ['', '', ''],
-              ['', '', '']]);
-    setGame(new Chess(openings_fen[new_opening]));
-  }
-  
 return (
   <div className="bg-blue-500 flex flex-row gap-6 mx-auto h-screen">
     {/* Add the evaluation bar - fixed width */}
@@ -354,9 +346,8 @@ return (
         <div>
           <Chessboard 
             position={game.fen()} 
-            arePiecesDraggable={allowDrop.current} 
-            boardOrientation={chessboardOrientation.current} 
-            areArrowsAllowed={allowDrop.current} 
+            arePiecesDraggable={false} 
+            areArrowsAllowed={displayArrows} 
             customArrows={arrows} 
             animationDuration={300}
           />
