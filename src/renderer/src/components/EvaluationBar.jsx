@@ -21,13 +21,21 @@ const EvalBar = ({evaluation = 0, }) => {
     }, [evaluation]);
 
     const parseEval = () => {
-        if (typeof(evaluation) == 'string') { 
-            if (evaluation.toLowerCase().startsWith('m')) {
+        // TODO: NEED TO TEST FOR MULTIPLE MATES, mate in more than 1, etc
+        if (typeof(evaluation) == 'string') {
+            console.log("evaluation: " + evaluation)
+            if (evaluation.toLowerCase().startsWith('m') || evaluation.substring(1).toLowerCase().startsWith('m')) {
                 setHasMate(true); 
+                if(evaluation.startsWith('-')) {
+                    setMateCount(evaluation.substring(2));
+                    return -100;
+                }
+
                 setMateCount(evaluation.substring(1));
-                return parseInt(evaluation.substring(1)) > 0 ? 100 : -100;
+                return 100;
             
             } else {
+                setHasMate(false);
                 console.log("evaluation: ");
                 console.log(evaluation);
                 return parseFloat(evaluation) / 100.0;
@@ -68,7 +76,7 @@ return (
                 fontSize: 'xx-large',
                 textShadow: '0px 0px 2px rgba(0,0,0,0.5)'
             }}>
-                {Math.round((barHeight - 50) / 10 * 100) / 100}
+                {!hasMate ? (Math.round((barHeight - 50) / 10 * 100) / 100) : ("M" + mateCount.toString())}
             </div>
         </div>
     );

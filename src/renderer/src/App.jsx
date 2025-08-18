@@ -168,11 +168,11 @@ function setupStockfishListener() {
             }
 
             // update evaluation centipawns for eval bar
-            setCurrentEvaluation(centipawn);
+            setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + moveNum.toString()) : ("M" + moveNum.toString())) : centipawn);
             
             // TODO: FIX BUG WITH CP/UCI of move!!!!!!!! includes info, or some shit, as well as fix eval to show mate not cp
-            stockfishMove0.current[`CP`] = centipawn;  
-            stockfishMove0.current[`UCI`] = moveUCI;  
+            stockfishMove0.current[`CP`] = hasMate ? "M" + moveNum.toString() : centipawn;  
+            stockfishMove0.current[`UCI`] = moveUCI.substring(0, 4);  
             break;
           case 1:
             stockfishMove1.current[`CP`] = cp * mult;  
