@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Random } from 'random-js';
-import { Mutex } from 'async-mutex';
 import EvalBar from './components/EvaluationBar';
 
 import stockfish from "stockfish.js";
@@ -12,22 +11,12 @@ let prevFEN = null;
 
 // Create a global map to store promises by position
 const positionPromises = new Map();
-const movesMutex = new Mutex();
 
 const override = {
   display: "block",
   margin: "0 auto",
   borderColor: "red",
   // any other CSS properties you want to override
-};
-
-const openings_fen = { 
-     random: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-     italian: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3',
-     sicilian: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2',
-     sicilian_yugoslov: 'rnbqkb1r/pp2pp1p/3p1np1/8/3NP3/2N1B3/PPP2PPP/R2QKB1R b KQkq - 0 6',
-     french: 'rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3',
-     caro: 'rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3'
 };
 
 // Now we have access to the safe API we exposed
@@ -95,6 +84,7 @@ const [game, setGame] = useState(new Chess());
 const [minELO, setMinELO] = useState("1800");
 const [loadingAPIResponses, setLoadingAPIResponses] = useState(false);
 const [arrows, setArrows] = useState([
+  // ['e2', 'e4', 'green'],
   ['', '', ''],
   ['', '', ''],
   ['', '', '']
@@ -133,13 +123,17 @@ let stockfishListener = null;
 function setupStockfishListener() {
   if (stockfishListener) return; // Only set up once
   
+  // when output from stockfish received, update accordingly
   stockfishListener = window.stockfish.onOutput((data) => {
+    // TODO: FIX FOR MATE FOR BOTH EVAL AND FINDING IT IN STOCKFISH STRING
     console.log(data);
     
+    // if data starts with it's at depth 20 and includes the eval, update stockfish moves and centipawn
     if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
       const fen = prevFEN;
       
-      // Get the promise resolvers for this position
+      // TODO: SHOULD PROBABLY REMOVE AS DOESN"T DO VALID JOB OF GETTING ACCURATE EVAL FOR TRUE POSITION FOR EVAL
+      // Get the promise resolvers for this position in order to check who's turn it  was for position in promise
       const promiseData = positionPromises.get(fen);
       console.log("Promise data: ", promiseData)
       if (!promiseData) return;
@@ -150,22 +144,34 @@ function setupStockfishListener() {
       const wordsArr = data.split(" ");
       let cpIndex = wordsArr.indexOf("cp");
       let cp = wordsArr[cpIndex + 1];
+      let mateIndex = wordsArr.indexOf("mate");
+      let mateNum = wordsArr[mateIndex + 1];
       let moveNumIndex = wordsArr.indexOf("multipv");
       let moveNum = wordsArr[moveNumIndex + 1];
       let pvIndex = wordsArr.indexOf("pv");
       let moveUCI = wordsArr[pvIndex + 1];
       
-      // Process the moves
+      // Process the top 3 moves
       let iter = 0;
       let mult = turn == 'w' ? 1 : -1;
+      let hasMate = false;
       
+      // loop through till all 3 moves handled
       while (moveNumIndex !== -1) {
         switch (iter) {
           case 0:
-            const centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+            const centipawn = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+
+            // set hasMate to true so cp not updated but mate index is at end of this iteration
+            if (mateIndex !== -1) {
+              hasMate = true;
+            }
+
+            // update evaluation centipawns for eval bar
             setCurrentEvaluation(centipawn);
             
-            stockfishMove0.current[`CP`] = cp * mult;  
+            // TODO: FIX BUG WITH CP/UCI of move!!!!!!!! includes info, or some shit, as well as fix eval to show mate not cp
+            stockfishMove0.current[`CP`] = centipawn;  
             stockfishMove0.current[`UCI`] = moveUCI;  
             break;
           case 1:
@@ -187,8 +193,16 @@ function setupStockfishListener() {
         if (moveNumIndex === -1) break;
         
         moveNum = wordsArr[moveNumIndex + 1]
-        cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
-        cp = wordsArr[cpIndex + 1];
+
+        // if this move was mate, look for new mate, as if cp exists, we already have it
+        if (!hasMate) {
+          cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
+          cp = wordsArr[cpIndex + 1];
+        } else {
+          hasMate = false;
+          mateIndex = wordsArr.indexOf("mate", cpIndex + 1)
+          mateNum = wordsArr[mateIndex + 1];
+        }
         pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
         moveUCI = wordsArr[pvIndex + 1]
       }
@@ -199,30 +213,21 @@ function setupStockfishListener() {
         positionPromises.delete(otherFen)
       }
       
-      // TODO: PROBABLY USELESS??????!!!!!!!!!
-    } else if (data.includes && data.includes("readyok")) {
-      for (otherFen in positionPromises.keys()) {
-        if (otherFen != lastFEN) {
-          promiseData = positionPromises.get(otherFen)
-          const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
-          resolve(false);
-          positionPromises.delete(otherFen)
-        }
-      }
-    }
-    });
-}
+    } 
 
-// setupStockfishListener();
+  });
+}
 
 useEffect(() => {
   gameRef.current = game;
 }, [game]);
 
 function toggleEvalBar() {
-  setDisplayEvalBar(!displayEvalBar);
+  // if eval bar is off, make arrows disappear, otherwise, if turning on, put back on most up to date arrows
+  const tempDisplayEvalBar = !displayEvalBar;
+  setDisplayEvalBar(tempDisplayEvalBar);
 
-  if(displayEvalBar == false) {
+  if(tempDisplayEvalBar == false) {
     setOldArrows(
       arrows
     );
@@ -249,12 +254,18 @@ async function handleWebsocketMessage(message) {
     str += String.fromCharCode(message[i]);
   }
   console.log('Received from WebSocket:', str)
-  // Update UI with the message
-  // document.getElementById('message-display').textContent = message
+  // if received string is reset game, check if it's a game reset or a move being played
   if (str == "reset game") {
     console.log("resetting game!!!!!!")
     setGame(new Chess());
+
+    // reset current arrows and old arrows
     setArrows(
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']
+    );
+    setOldArrows(
       ['', '', ''],
       ['', '', ''],
       ['', '', '']
@@ -275,6 +286,7 @@ async function handleWebsocketMessage(message) {
 
     setGame(new Chess(gameRef.current.fen()));
 
+    // grab best stockfish moves, master moves, and normie moves
     console.log("about to start all promises")
     const [masterMoves, normieMoves, stockfishResult] = await Promise.all([
       getMasterMoves(gameRef.current.fen()),
@@ -284,9 +296,6 @@ async function handleWebsocketMessage(message) {
     // getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
     console.log(stockfishResult)
     if (stockfishResult) {
-      // TODO: IS THERE A BETTER WAY OF DOING THIS?????!!! removing all listeners seems heinous and I'd like for listeners to die always after their usefulness
-      // removeListeners();
-    
     
       // update master best moves text
       console.log(masterMoves.moves[0])
@@ -304,11 +313,19 @@ async function handleWebsocketMessage(message) {
       normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
-      // update arrows
-      setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-      );
+      // TODO: TEST TO SEE IF UPDATES OLD ARROWS IN BACKGROUND WHEN OFF!!!!
+      // update arrows if enabled and update old arrows if disabled
+      if (displayEvalBar) {
+        setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+        );
+      } else {
+        setOldArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+        );
+      }
 
     }
   }
@@ -318,13 +335,16 @@ async function handleWebsocketMessage(message) {
 useEffect(() => {
   // Register the WebSocket listener once
   window.electronAPI.receive('ws-message', handleWebsocketMessage);
+
+  // setup stockfish listener
   setupStockfishListener();
+
   // Clean up on unmount
   return () => {
     // If there's a way to remove the listener, do it here
     // window.electronAPI.removeListener('ws-message', handleWebsocketMessage);
   };
-}, []); // Empty dependency array means this only runs once on mount
+}, []);
 
 return (
   <div className="bg-blue-500 flex flex-row gap-6 mx-auto h-screen">
