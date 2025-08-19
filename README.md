@@ -1,3 +1,3 @@
 TODO:
-- switch to node.js or something and host?????
-- better querying (i.e. not random of all (up to 12) top moves, but check how many moves make up top say, 80%, and then pick a random one of those, filter by time control so blitz, bullet, ultrabullet, etc., aren't skewing results, etc
+- Make it so arrows disappeared on move played
+- check if displayEvalBar needed or just ref, as it wasn't working great for eval bar???

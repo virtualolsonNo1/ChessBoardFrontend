@@ -112,6 +112,7 @@ const analysisBoardFEN = useRef("");
 const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(true)
+const displayEvalBarRef = useRef(true);
 const [displayEvalBar, setDisplayEvalBar] = useState(true);
 const [displayArrows, setDisplayArrows] = useState(true);
 const gameRef = useRef(game);
@@ -158,6 +159,7 @@ function setupStockfishListener() {
       
       // loop through till all 3 moves handled
       while (moveNumIndex !== -1) {
+        // TODO: REFACTOR SWITCH STATEMENT TO HAVE CENTIPAWN AND HAS MATE OUTSIDE!!!
         switch (iter) {
           case 0:
             const centipawn = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
@@ -168,18 +170,32 @@ function setupStockfishListener() {
             }
 
             // update evaluation centipawns for eval bar
-            setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + moveNum.toString()) : ("M" + moveNum.toString())) : centipawn);
+            setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + mateNum.toString()) : ("M" + mateNum.toString())) : centipawn);
             
             // TODO: FIX BUG WITH CP/UCI of move!!!!!!!! includes info, or some shit, as well as fix eval to show mate not cp
-            stockfishMove0.current[`CP`] = hasMate ? "M" + moveNum.toString() : centipawn;  
+            stockfishMove0.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn;  
             stockfishMove0.current[`UCI`] = moveUCI.substring(0, 4);  
             break;
           case 1:
-            stockfishMove1.current[`CP`] = cp * mult;  
+            const centipawn2 = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+
+            // set hasMate to true so cp not updated but mate index is at end of this iteration
+            if (mateIndex !== -1) {
+              hasMate = true;
+            }
+
+            stockfishMove1.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn2; 
             stockfishMove1.current[`UCI`] = moveUCI;  
             break;
           case 2:
-            stockfishMove2.current[`CP`] = cp * mult;  
+            const centipawn3 = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+
+            // set hasMate to true so cp not updated but mate index is at end of this iteration
+            if (mateIndex !== -1) {
+              hasMate = true;
+            }
+
+            stockfishMove2.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn3;   
             stockfishMove2.current[`UCI`] = moveUCI;  
             
             // Clean up and resolve
@@ -200,7 +216,7 @@ function setupStockfishListener() {
           cp = wordsArr[cpIndex + 1];
         } else {
           hasMate = false;
-          mateIndex = wordsArr.indexOf("mate", cpIndex + 1)
+          mateIndex = wordsArr.indexOf("mate", mateIndex + 1)
           mateNum = wordsArr[mateIndex + 1];
         }
         pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
@@ -224,10 +240,10 @@ useEffect(() => {
 
 function toggleEvalBar() {
   // if eval bar is off, make arrows disappear, otherwise, if turning on, put back on most up to date arrows
-  const tempDisplayEvalBar = !displayEvalBar;
-  setDisplayEvalBar(tempDisplayEvalBar);
+  displayEvalBarRef.current = !(displayEvalBarRef.current);
 
-  if(tempDisplayEvalBar == false) {
+  if(displayEvalBarRef.current == false) {
+    console.log("SETTING OLD ARROWS!!!!!")
     setOldArrows(
       arrows
     );
@@ -237,6 +253,7 @@ function toggleEvalBar() {
       ['', '', '']]
     );
   } else {
+    console.log("SETTING NEW ARROWS!!!!!")
     setArrows(oldArrows); 
     setOldArrows([
       ['', '', ''],
@@ -244,6 +261,8 @@ function toggleEvalBar() {
       ['', '', '']]
     );
   }
+
+  setDisplayEvalBar(displayEvalBarRef.current);
   console.log(arrows)
 }
 
@@ -315,7 +334,8 @@ async function handleWebsocketMessage(message) {
 
       // TODO: TEST TO SEE IF UPDATES OLD ARROWS IN BACKGROUND WHEN OFF!!!!
       // update arrows if enabled and update old arrows if disabled
-      if (displayEvalBar) {
+      console.log("Display Eval Bar: " + displayEvalBarRef.current)
+      if (displayEvalBarRef.current) {
         setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
                   [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
                   [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
