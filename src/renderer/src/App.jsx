@@ -160,15 +160,14 @@ function setupStockfishListener() {
       // loop through till all 3 moves handled
       while (moveNumIndex !== -1) {
         // TODO: REFACTOR SWITCH STATEMENT TO HAVE CENTIPAWN AND HAS MATE OUTSIDE!!!
+        const centipawn = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+
+        // set hasMate to true so cp not updated but mate index is at end of this iteration
+        if (mateIndex !== -1) {
+          hasMate = true;
+        }
         switch (iter) {
           case 0:
-            const centipawn = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-
-            // set hasMate to true so cp not updated but mate index is at end of this iteration
-            if (mateIndex !== -1) {
-              hasMate = true;
-            }
-
             // update evaluation centipawns for eval bar
             setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + mateNum.toString()) : ("M" + mateNum.toString())) : centipawn);
             
@@ -177,25 +176,11 @@ function setupStockfishListener() {
             stockfishMove0.current[`UCI`] = moveUCI.substring(0, 4);  
             break;
           case 1:
-            const centipawn2 = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-
-            // set hasMate to true so cp not updated but mate index is at end of this iteration
-            if (mateIndex !== -1) {
-              hasMate = true;
-            }
-
-            stockfishMove1.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn2; 
+            stockfishMove1.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn; 
             stockfishMove1.current[`UCI`] = moveUCI;  
             break;
           case 2:
-            const centipawn3 = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-
-            // set hasMate to true so cp not updated but mate index is at end of this iteration
-            if (mateIndex !== -1) {
-              hasMate = true;
-            }
-
-            stockfishMove2.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn3;   
+            stockfishMove2.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn;
             stockfishMove2.current[`UCI`] = moveUCI;  
             
             // Clean up and resolve
@@ -370,7 +355,7 @@ return (
   <div className="bg-blue-500 flex flex-row gap-6 mx-auto h-screen">
     {/* Add the evaluation bar - fixed width */}
     <div className="" style={{ width: '50px', padding: '10px', flexShrink: 0 }}>
-      {displayEvalBar && <EvalBar 
+      {displayEvalBarRef.current && <EvalBar 
         evaluation={currentEvaluation} 
         isWhiteToMove={game.turn() === 'w'} 
         height="90vh" 
