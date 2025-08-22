@@ -1,12 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
-import { Random } from 'random-js';
 import EvalBar from './components/EvaluationBar';
 
-import stockfish from "stockfish.js";
 import ClipLoader from "react-spinners/ClipLoader";
-const random = new Random()
 let prevFEN = null;
 
 // Create a global map to store promises by position
@@ -18,15 +15,6 @@ const override = {
   borderColor: "red",
   // any other CSS properties you want to override
 };
-
-// Now we have access to the safe API we exposed
-
-  function updateMinELO(newELO, setMinELO) {
-    if (newELO <= 2500 && newELO >= 0) {
-    setMinELO(newELO)
-    }
-  }
-
 
   async function getMasterMoves(FEN) {
     console.log("about to grab master moves")
@@ -84,7 +72,6 @@ const [game, setGame] = useState(new Chess());
 const [minELO, setMinELO] = useState("1800");
 const [loadingAPIResponses, setLoadingAPIResponses] = useState(false);
 const [arrows, setArrows] = useState([
-  // ['e2', 'e4', 'green'],
   ['', '', ''],
   ['', '', ''],
   ['', '', '']
@@ -109,11 +96,9 @@ const normieMove2 = useRef("");
 const yourMove = useRef("");
 const disableAnalysisBoardButton = useRef(true);
 const analysisBoardFEN = useRef("");
-const chessboardOrientation = useRef('white');
 const displayPlayMoveText = useRef(false);
 const displayMovesText = useRef(true)
 const displayEvalBarRef = useRef(true);
-const [displayEvalBar, setDisplayEvalBar] = useState(true);
 const [displayArrows, setDisplayArrows] = useState(true);
 const gameRef = useRef(game);
 
@@ -247,7 +232,6 @@ function toggleEvalBar() {
     );
   }
 
-  setDisplayEvalBar(displayEvalBarRef.current);
   console.log(arrows)
 }
 
@@ -278,6 +262,25 @@ async function handleWebsocketMessage(message) {
     setCurrentEvaluation(0);
     return;
   } else {
+    // clear current arrows
+      if(displayEvalBarRef.current == false) {
+        console.log("REMOVING OLD ARROWS!!!!!")
+        setOldArrows([
+          ['', '', ''],
+          ['', '', ''],
+          ['', '', '']]
+        );
+      } else {
+        console.log("REMOVING NEW ARROWS!!!!!")
+        setArrows([
+          ['', '', ''],
+          ['', '', ''],
+          ['', '', '']]
+        );
+      }
+
+
+    // TODO: I DON"T THINK THIS WORKS!!!!!!!
     // stop any previous search
     window.stockfish.sendCommand("stop");
 

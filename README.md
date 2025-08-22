@@ -1,3 +1,3 @@
 TODO:
-- Make it so arrows disappeared on move played
-- check if displayEvalBar needed or just ref, as it wasn't working great for eval bar???
+- add in lichess or chess.com analysis board button and maybe spinner when looking for move info
+- fix stockfish eval and timing bugs
