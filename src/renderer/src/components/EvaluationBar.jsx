@@ -24,13 +24,16 @@ const EvalBar = ({evaluation = 0, }) => {
         // TODO: NEED TO TEST FOR MULTIPLE MATES, mate in more than 1, etc
         if (typeof(evaluation) == 'string') {
             console.log("evaluation: " + evaluation)
-            if (evaluation.toLowerCase().startsWith('m') || evaluation.substring(1).toLowerCase().startsWith('m')) {
+            if (evaluation.toLowerCase().startsWith('m')) {
                 setHasMate(true); 
-                if(evaluation.startsWith('-')) {
+                
+                // if black to win, have mate count be 3rd letter and set bar to black (-100)
+                if(evaluation.charAt(1) === '-') {
                     setMateCount(evaluation.substring(2));
                     return -100;
                 }
 
+                // otherwise use second letter for mate num and set it white
                 setMateCount(evaluation.substring(1));
                 return 100;
             

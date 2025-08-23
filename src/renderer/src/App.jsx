@@ -176,17 +176,17 @@ function setupStockfishListener() {
         switch (iter) {
           case 0:
             // update evaluation centipawns for eval bar
-            setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + mateNum.toString()) : ("M" + mateNum.toString())) : centipawn);
+            setCurrentEvaluation(hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn);
             
-            stockfishMove0.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn;  
+            stockfishMove0.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
             stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
             break;
           case 1:
-            stockfishMove1.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn; 
+            stockfishMove1.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
             stockfishMove1.current["UCI"] = moveUCI;  
             break;
           case 2:
-            stockfishMove2.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn;
+            stockfishMove2.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
             stockfishMove2.current["UCI"] = moveUCI;  
             
             // Clean up and resolve
