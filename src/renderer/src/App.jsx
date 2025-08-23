@@ -4,7 +4,11 @@ import { Chess } from 'chess.js';
 import EvalBar from './components/EvaluationBar';
 
 import ClipLoader from "react-spinners/ClipLoader";
-let prevFEN = null;
+let positionStack = []
+let currentAnalysis = null;
+let nextAnalysis = null;
+let isStockfishBusy = false;
+let stopAlreadyCalled = false;
 
 // Create a global map to store promises by position
 const positionPromises = new Map();
@@ -33,30 +37,53 @@ const override = {
     const response = await fetch(`/lichess/lichess?fen=${FEN}`).catch(error => {console.log("INVALID DATA2")});
     return await response.json();
   }
-let removeListeners = null;
+
+
 function getBestStockfishMoves(gameRef, fen, depth = 15, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2) {
   console.log(fen);
+
+  // If Stockfish is busy, cancel current analysis by sending stop command ONLY ONCE
+  if (isStockfishBusy && !stopAlreadyCalled) {
+    stopAlreadyCalled = true;
+    window.stockfish.sendCommand("stop");
+  }
   
-  return new Promise(async (resolve) => {
+  // create deferred promise for new move
+  return new Promise((resolve) => {
     
-    // Store the promise resolvers
-    positionPromises.set(fen, {
+    const analysisRequest = {
+      fen,
       resolve,
       turn: gameRef.current.turn(),
       setCurrentEvaluation,
       stockfishMove0,
       stockfishMove1,
       stockfishMove2
-    });
-    
-    // Initialize the engine and start analysis
-    window.stockfish.sendCommand("uci");
-    window.stockfish.sendCommand("isready");
-    window.stockfish.sendCommand("setoption name MultiPV value 3");
-    window.stockfish.sendCommand(`position fen ${fen}`);
+    };
 
-    prevFEN = gameRef.current.fen();
-    window.stockfish.sendCommand(`go depth ${depth}`);
+    // if stockfish is busy, simply resolve old promise if one exists and create one for this move, as stop already sent (either now or by previous promise)
+    if (isStockfishBusy) {
+      // if next analysis exists, needs replaced so resolve as false
+      if (nextAnalysis != null) {
+        const { resolve: prevResolve } = nextAnalysis
+        prevResolve(false);
+      }
+      nextAnalysis = analysisRequest;
+
+      // if stockfish isn't busy, start analysis of played move
+    } else {
+      currentAnalysis = analysisRequest;
+      isStockfishBusy = true;
+      stopAlreadyCalled = false;
+
+      // Start Stockfish analysis
+      window.stockfish.sendCommand("uci");
+      window.stockfish.sendCommand("isready");
+      window.stockfish.sendCommand("setoption name MultiPV value 3");
+      window.stockfish.sendCommand(`position fen ${fen}`);
+      window.stockfish.sendCommand(`go depth ${depth}`);
+    }
+
   });
 }
 
@@ -116,15 +143,10 @@ function setupStockfishListener() {
     
     // if data starts with it's at depth 20 and includes the eval, update stockfish moves and centipawn
     if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
-      const fen = prevFEN;
       
-      // TODO: SHOULD PROBABLY REMOVE AS DOESN"T DO VALID JOB OF GETTING ACCURATE EVAL FOR TRUE POSITION FOR EVAL
       // Get the promise resolvers for this position in order to check who's turn it  was for position in promise
-      const promiseData = positionPromises.get(fen);
-      console.log("Promise data: ", promiseData)
-      if (!promiseData) return;
-      
-      const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
+      const { fen, resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = currentAnalysis;
+      console.log("FEN: " + fen)
       
       // Parse the data
       const wordsArr = data.split(" ");
@@ -170,7 +192,34 @@ function setupStockfishListener() {
             
             // Clean up and resolve
             positionPromises.delete(fen);
-            resolve(true);
+
+            
+            // if there's a new move to analyze and we happened to finish, start it, otherwise, set stockfish to not busy
+            if (nextAnalysis != null) {
+              // don't display arrows as there's another move already played
+              resolve(false);
+              
+              // set stockfish to busy still (redundant?) and reset stop already called to false
+              isStockfishBusy = true;
+              stopAlreadyCalled = false;
+              
+              // reset current analysis and clear next analysis
+              currentAnalysis = nextAnalysis;
+              let { fen: newFen } = nextAnalysis;
+              nextAnalysis = null;
+
+              // Start Stockfish analysis for already played move
+              window.stockfish.sendCommand("uci");
+              window.stockfish.sendCommand("isready");
+              window.stockfish.sendCommand("setoption name MultiPV value 3");
+              window.stockfish.sendCommand(`position fen ${newFen}`);
+              window.stockfish.sendCommand(`go depth 20`);
+            } else {
+              isStockfishBusy = false;
+              console.log("NO SECOND MOVE ALREADY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+              resolve(true);
+            }
+
             break;
         }
         
@@ -192,14 +241,34 @@ function setupStockfishListener() {
         pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
         moveUCI = wordsArr[pvIndex + 1]
       }
-      for (otherFen in positionPromises.keys()) {
-        promiseData = positionPromises.get(otherFen)
-        const { resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = promiseData;
-        resolve(false);
-        positionPromises.delete(otherFen)
-      }
       
-    } 
+      // if stop called early, stop current analysis, resolve to false, and start analysis for newly played move
+    } else if (data.includes("bestmove")) {
+      console.log("STOP CALLED EARLY!!!!!!!!")
+
+      const { resolve } = currentAnalysis;
+
+      resolve(false);
+
+      // new move was play, so start new analysis
+      if (nextAnalysis != null) {
+        const { fen: newFen } = nextAnalysis;
+        isStockfishBusy = true;
+        stopAlreadyCalled = false;
+        currentAnalysis = nextAnalysis;
+        nextAnalysis = null;
+
+        // Start Stockfish analysis
+        window.stockfish.sendCommand("uci");
+        window.stockfish.sendCommand("isready");
+        window.stockfish.sendCommand("setoption name MultiPV value 3");
+        window.stockfish.sendCommand(`position fen ${newFen}`);
+        window.stockfish.sendCommand(`go depth 20`);
+      } else {
+        isStockfishBusy = false;
+        console.log("ERROR SHOULD NEVER HAPPEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      }
+    }
 
   });
 }
@@ -262,6 +331,7 @@ async function handleWebsocketMessage(message) {
     setCurrentEvaluation(0);
     return;
   } else {
+
     // clear current arrows
       if(displayEvalBarRef.current == false) {
         console.log("REMOVING OLD ARROWS!!!!!")
@@ -280,9 +350,6 @@ async function handleWebsocketMessage(message) {
       }
 
 
-    // TODO: I DON"T THINK THIS WORKS!!!!!!!
-    // stop any previous search
-    window.stockfish.sendCommand("stop");
 
     // TODO: TEST WITH THIS AS WELL AS try to find fix for super quick play and listener b/w issues due to wrong listener being alive
       // window.stockfish.sendCommand("stop");
@@ -305,6 +372,7 @@ async function handleWebsocketMessage(message) {
     if (stockfishResult) {
     
       // update master best moves text
+      console.log("Master Moves")
       console.log(masterMoves.moves[0])
       console.log(masterMoves.moves[1])
       console.log(masterMoves.moves[2])
