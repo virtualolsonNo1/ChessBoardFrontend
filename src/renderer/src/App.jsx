@@ -178,17 +178,16 @@ function setupStockfishListener() {
             // update evaluation centipawns for eval bar
             setCurrentEvaluation(hasMate ? (mult === -1 ? ("-" + "M" + mateNum.toString()) : ("M" + mateNum.toString())) : centipawn);
             
-            // TODO: FIX BUG WITH CP/UCI of move!!!!!!!! includes info, or some shit, as well as fix eval to show mate not cp
-            stockfishMove0.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn;  
-            stockfishMove0.current[`UCI`] = moveUCI.substring(0, 4);  
+            stockfishMove0.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn;  
+            stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
             break;
           case 1:
-            stockfishMove1.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn; 
-            stockfishMove1.current[`UCI`] = moveUCI;  
+            stockfishMove1.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn; 
+            stockfishMove1.current["UCI"] = moveUCI;  
             break;
           case 2:
-            stockfishMove2.current[`CP`] = hasMate ? "M" + mateNum.toString() : centipawn;
-            stockfishMove2.current[`UCI`] = moveUCI;  
+            stockfishMove2.current["CP"] = hasMate ? "M" + mateNum.toString() : centipawn;
+            stockfishMove2.current["UCI"] = moveUCI;  
             
             // Clean up and resolve
             positionPromises.delete(fen);
@@ -196,6 +195,7 @@ function setupStockfishListener() {
             
             // if there's a new move to analyze and we happened to finish, start it, otherwise, set stockfish to not busy
             if (nextAnalysis != null) {
+              console.log("NEW MOVE BUT FINISHING CURRENT ONE!!!!!")
               // don't display arrows as there's another move already played
               resolve(false);
               
@@ -478,9 +478,9 @@ return (
         }
         
         <h3 className="text-3xl font-bold my-5 text-white">Stockfish Best Moves</h3> 
-        <p className="text-3xl text-green-300 mb-3">Stockfish Move 0: {displayMovesText.current ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ","}</p>
-        <p className="text-3xl text-yellow-300 mb-3">Stockfish Move 1: {displayMovesText.current ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ","}</p>
-        <p className="text-3xl text-orange-300 mb-5">Stockfish Move 2: {displayMovesText.current ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ","}</p>
+        <p className="text-3xl text-green-300 mb-3">Stockfish Move 0: {(displayMovesText.current && stockfishMove0.current["UCI"]) ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ""}</p>
+        <p className="text-3xl text-yellow-300 mb-3">Stockfish Move 1: {(displayMovesText.current && stockfishMove1.current["UCI"]) ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ""}</p>
+        <p className="text-3xl text-orange-300 mb-5">Stockfish Move 2: {(displayMovesText.current && stockfishMove2.current["UCI"]) ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ""}</p>
         
         <h3 className="text-3xl font-bold my-5 text-white">Popular Master Moves</h3> 
         <p className="text-3xl text-white mb-2">Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
