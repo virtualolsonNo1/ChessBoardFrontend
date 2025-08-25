@@ -7,11 +7,13 @@ import ClipLoader from "react-spinners/ClipLoader";
 let positionStack = []
 let currentAnalysis = null;
 let nextAnalysis = null;
+let currSfStr = "";
 let isStockfishBusy = false;
 let stopAlreadyCalled = false;
-
-// Create a global map to store promises by position
-const positionPromises = new Map();
+const bestmoveRegex = /bestmove/;
+const multipv1Regex = /info depth 20 seldepth \d+ multipv 1 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
+const multipv2Regex = /info depth 20 seldepth \d+ multipv 2 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
+const multipv3Regex = /info depth 20 seldepth \d+ multipv 3 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
 
 const override = {
   display: "block",
@@ -140,134 +142,139 @@ function setupStockfishListener() {
   stockfishListener = window.stockfish.onOutput((data) => {
     // TODO: FIX FOR MATE FOR BOTH EVAL AND FINDING IT IN STOCKFISH STRING
     console.log(data);
-    
-    // if data starts with it's at depth 20 and includes the eval, update stockfish moves and centipawn
-    if (data.startsWith(`info depth 20`) && data.includes("multipv")) {
-      
-      // Get the promise resolvers for this position in order to check who's turn it  was for position in promise
-      const { fen, resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = currentAnalysis;
-      console.log("FEN: " + fen)
-      
-      // Parse the data
-      const wordsArr = data.split(" ");
-      let cpIndex = wordsArr.indexOf("cp");
-      let cp = wordsArr[cpIndex + 1];
-      let mateIndex = wordsArr.indexOf("mate");
-      let mateNum = wordsArr[mateIndex + 1];
-      let moveNumIndex = wordsArr.indexOf("multipv");
-      let moveNum = wordsArr[moveNumIndex + 1];
-      let pvIndex = wordsArr.indexOf("pv");
-      let moveUCI = wordsArr[pvIndex + 1];
-      
-      // Process the top 3 moves
-      let iter = 0;
-      let mult = turn == 'w' ? 1 : -1;
-      let hasMate = false;
-      
-      // loop through till all 3 moves handled
-      while (moveNumIndex !== -1) {
-        // TODO: REFACTOR SWITCH STATEMENT TO HAVE CENTIPAWN AND HAS MATE OUTSIDE!!!
-        const centipawn = mateIndex !== -1 ? (turn == 'w' ? "1000" : "-1000") : (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
 
-        // set hasMate to true so cp not updated but mate index is at end of this iteration
-        if (mateIndex !== -1) {
-          hasMate = true;
-        }
-        switch (iter) {
-          case 0:
-            // update evaluation centipawns for eval bar
-            setCurrentEvaluation(hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn);
-            
-            stockfishMove0.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
-            stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
-            break;
-          case 1:
-            stockfishMove1.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
-            stockfishMove1.current["UCI"] = moveUCI;  
-            break;
-          case 2:
-            stockfishMove2.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateNum * mult).toString())) : ("M" + mateNum.toString())) : centipawn;  
-            stockfishMove2.current["UCI"] = moveUCI;  
-            
-            // Clean up and resolve
-            positionPromises.delete(fen);
+    currSfStr += data
+    console.log("Best move found: " + bestmoveRegex.test(currSfStr))
 
-            
-            // if there's a new move to analyze and we happened to finish, start it, otherwise, set stockfish to not busy
-            if (nextAnalysis != null) {
-              console.log("NEW MOVE BUT FINISHING CURRENT ONE!!!!!")
-              // don't display arrows as there's another move already played
-              resolve(false);
-              
-              // set stockfish to busy still (redundant?) and reset stop already called to false
-              isStockfishBusy = true;
-              stopAlreadyCalled = false;
-              
-              // reset current analysis and clear next analysis
-              currentAnalysis = nextAnalysis;
-              let { fen: newFen } = nextAnalysis;
-              nextAnalysis = null;
-
-              // Start Stockfish analysis for already played move
-              window.stockfish.sendCommand("uci");
-              window.stockfish.sendCommand("isready");
-              window.stockfish.sendCommand("setoption name MultiPV value 3");
-              window.stockfish.sendCommand(`position fen ${newFen}`);
-              window.stockfish.sendCommand(`go depth 20`);
-            } else {
-              isStockfishBusy = false;
-              console.log("NO SECOND MOVE ALREADY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-              resolve(true);
-            }
-
-            break;
-        }
+    if (bestmoveRegex.test(currSfStr)) {
+      
+      // console.log("Current string: " + currSfStr)
+      // console.log("Done printing curr str shit")
+      console.log("multipv 3 line found: " + multipv3Regex.test(currSfStr))
+      // if data includes depth 20 multipv 3, found 3 best lines, so handle accordingly, otherwise, stop was called early
+      if (multipv3Regex.test(currSfStr)) {
+        console.log("Found best move at depth 20!!!!!!!!!!")
         
-        iter++;
-        moveNumIndex = wordsArr.indexOf("multipv", moveNumIndex + 1)
-        if (moveNumIndex === -1) break;
+        // Get the promise resolvers for this position in order to check who's turn it  was for position in promise
+        const { fen, resolve, turn, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2 } = currentAnalysis;
+        console.log("FEN: " + fen)
         
-        moveNum = wordsArr[moveNumIndex + 1]
+        let mult = turn == 'w' ? 1 : -1;
 
-        // if this move was mate, look for new mate, as if cp exists, we already have it
-        if (!hasMate) {
-          cpIndex = wordsArr.indexOf("cp", cpIndex + 1)
-          cp = wordsArr[cpIndex + 1];
+        let match = currSfStr.match(multipv1Regex)
+        let hasMate = false;
+        let mateCount = null;
+        console.log("Match 1 cp or mate: " + match[1]);
+
+        let centipawn = "";
+        if (match[1].includes("mate")) {
+            centipawn = turn == 'w' ? "1000" : "-1000"
+            // grab entire number at end of capture group
+            mateCount = parseInt(match[1].substring(5));
+            hasMate = true;
         } else {
-          hasMate = false;
-          mateIndex = wordsArr.indexOf("mate", mateIndex + 1)
-          mateNum = wordsArr[mateIndex + 1];
+            const cp = match[1].substring(3);
+            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+            hasMate = false;
         }
-        pvIndex = wordsArr.indexOf("pv", pvIndex + 1)
-        moveUCI = wordsArr[pvIndex + 1]
-      }
-      
-      // if stop called early, stop current analysis, resolve to false, and start analysis for newly played move
-    } else if (data.includes("bestmove")) {
-      console.log("STOP CALLED EARLY!!!!!!!!")
+        
+        // update evaluation centipawns for eval bar
+        setCurrentEvaluation(hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn);
+        
+        let moveUCI = match[2];
+        stockfishMove0.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+        stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
+        
 
-      const { resolve } = currentAnalysis;
+        match = currSfStr.match(multipv2Regex)
+        if (match[1].includes("mate")) {
+            centipawn = turn == 'w' ? "1000" : "-1000"
+            // grab entire number at end of capture group
+            mateCount = parseInt(match[1].substring(5));
+            hasMate = true;
+        } else {
+            const cp = match[1].substring(3);
+            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+            hasMate = false;
+        }
+        
+        moveUCI = match[2];
+        stockfishMove1.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+        stockfishMove1.current["UCI"] = moveUCI;  
 
-      resolve(false);
+        match = currSfStr.match(multipv3Regex)
+        if (match[1].includes("mate")) {
+            centipawn = turn == 'w' ? "1000" : "-1000"
+            // grab entire number at end of capture group
+            mateCount = parseInt(match[1].substring(5));
+            hasMate = true;
+        } else {
+            const cp = match[1].substring(3);
+            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+            hasMate = false;
+        }
 
-      // new move was play, so start new analysis
-      if (nextAnalysis != null) {
-        const { fen: newFen } = nextAnalysis;
-        isStockfishBusy = true;
-        stopAlreadyCalled = false;
-        currentAnalysis = nextAnalysis;
-        nextAnalysis = null;
+        moveUCI = match[2];
+        stockfishMove2.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+        stockfishMove2.current["UCI"] = moveUCI;  
+            
 
-        // Start Stockfish analysis
-        window.stockfish.sendCommand("uci");
-        window.stockfish.sendCommand("isready");
-        window.stockfish.sendCommand("setoption name MultiPV value 3");
-        window.stockfish.sendCommand(`position fen ${newFen}`);
-        window.stockfish.sendCommand(`go depth 20`);
+            
+        // if there's a new move to analyze and we happened to finish, start it, otherwise, set stockfish to not busy
+        if (nextAnalysis != null) {
+          console.log("NEW MOVE BUT FINISHING CURRENT ONE!!!!!")
+          // don't display arrows as there's another move already played
+          resolve(false);
+          
+          // set stockfish to busy still (redundant?) and reset stop already called to false
+          isStockfishBusy = true;
+          stopAlreadyCalled = false;
+          
+          // reset current analysis and clear next analysis
+          currentAnalysis = nextAnalysis;
+          let { fen: newFen } = nextAnalysis;
+          nextAnalysis = null;
+
+          // Start Stockfish analysis for already played move
+          window.stockfish.sendCommand("uci");
+          window.stockfish.sendCommand("isready");
+          window.stockfish.sendCommand("setoption name MultiPV value 3");
+          window.stockfish.sendCommand(`position fen ${newFen}`);
+          window.stockfish.sendCommand(`go depth 20`);
+        } else {
+          isStockfishBusy = false;
+          console.log("NO SECOND MOVE ALREADY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+          resolve(true);
+        }
+
+        // if stop called early, stop current analysis, resolve to false, and start analysis for newly played move
       } else {
-        isStockfishBusy = false;
-        console.log("ERROR SHOULD NEVER HAPPEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.log("STOP CALLED EARLY!!!!!!!!")
+
+        const { resolve } = currentAnalysis;
+
+        resolve(false);
+
+        // new move was play, so start new analysis
+        if (nextAnalysis != null) {
+          const { fen: newFen } = nextAnalysis;
+          isStockfishBusy = true;
+          stopAlreadyCalled = false;
+          currentAnalysis = nextAnalysis;
+          nextAnalysis = null;
+
+          // Start Stockfish analysis
+          window.stockfish.sendCommand("uci");
+          window.stockfish.sendCommand("isready");
+          window.stockfish.sendCommand("setoption name MultiPV value 3");
+          window.stockfish.sendCommand(`position fen ${newFen}`);
+          window.stockfish.sendCommand(`go depth 20`);
+        } else {
+          isStockfishBusy = false;
+          console.log("ERROR SHOULD NEVER HAPPEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        }
       }
+      currSfStr = ""
     }
 
   });
