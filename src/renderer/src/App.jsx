@@ -318,6 +318,7 @@ async function handleWebsocketMessage(message) {
   console.log('Received from WebSocket:', str)
   // if received string is reset game, check if it's a game reset or a move being played
   if (str == "reset game") {
+    disableAnalysisBoardButton.current = true;
     console.log("resetting game!!!!!!")
     setGame(new Chess());
 
@@ -336,6 +337,10 @@ async function handleWebsocketMessage(message) {
     setCurrentEvaluation(0);
     return;
   } else {
+    
+    if (disableAnalysisBoardButton.current) {
+      disableAnalysisBoardButton.current = false;
+    }
 
     // clear current arrows
       if(displayEvalBarRef.current == false) {
@@ -496,14 +501,17 @@ return (
         <p className="text-3xl text-white mb-2">Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
         <p className="text-3xl text-white mb-5">Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
         
-        {!disableAnalysisBoardButton.current && 
-          <button 
-            onClick={() => openLichessAnalysisBoard(analysisBoardFEN.current)} 
-            className="mt-6 bg-white hover:bg-gray-200 text-blue-700 font-bold py-3 px-6 rounded text-xl"
-          >
-            Go To Lichess Analysis Board
-          </button>
-        }
+      <button 
+        onClick={() => openLichessAnalysisBoard(gameRef.current.fen())} 
+        disabled={disableAnalysisBoardButton.current}
+        className={`mt-6 font-bold py-3 px-6 rounded text-xl ${
+          disableAnalysisBoardButton.current 
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+            : 'bg-white hover:bg-gray-200 text-blue-700 hover:cursor-pointer'
+        }`}
+      >
+        Go To Lichess Analysis Board
+      </button>
       </div>
     </div>
     <div className="flex-row">
