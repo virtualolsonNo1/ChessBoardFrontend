@@ -122,9 +122,7 @@ const normieMove0 = useRef("");
 const normieMove1 = useRef("");
 const normieMove2 = useRef("");
 const disableAnalysisBoardButton = useRef(true);
-const analysisBoardFEN = useRef("");
 const displayPlayMoveText = useRef(false);
-const displayMovesText = useRef(true)
 const displayEvalBarRef = useRef(true);
 const [displayArrows, setDisplayArrows] = useState(true);
 const gameRef = useRef(game);
@@ -487,19 +485,19 @@ return (
         }
         
         <h3 className="text-3xl font-bold my-5 text-white">Stockfish Best Moves</h3> 
-        <p className="text-3xl text-green-300 mb-3">Stockfish Move 0: {(displayMovesText.current && stockfishMove0.current["UCI"]) ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ""}</p>
-        <p className="text-3xl text-yellow-300 mb-3">Stockfish Move 1: {(displayMovesText.current && stockfishMove1.current["UCI"]) ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ""}</p>
-        <p className="text-3xl text-orange-300 mb-5">Stockfish Move 2: {(displayMovesText.current && stockfishMove2.current["UCI"]) ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ""}</p>
+        <p className="text-3xl text-green-300 mb-3">Stockfish Move 0: {(displayEvalBarRef.current && stockfishMove0.current["UCI"]) ? `${stockfishMove0.current["UCI"]}, ${stockfishMove0.current["CP"]}` : ""}</p>
+        <p className="text-3xl text-yellow-300 mb-3">Stockfish Move 1: {(displayEvalBarRef.current && stockfishMove1.current["UCI"]) ? `${stockfishMove1.current["UCI"]}, ${stockfishMove1.current["CP"]}` : ""}</p>
+        <p className="text-3xl text-orange-300 mb-5">Stockfish Move 2: {(displayEvalBarRef.current && stockfishMove2.current["UCI"]) ? `${stockfishMove2.current["UCI"]}, ${stockfishMove2.current["CP"]}` : ""}</p>
         
         <h3 className="text-3xl font-bold my-5 text-white">Popular Master Moves</h3> 
-        <p className="text-3xl text-white mb-2">Master Move 1: {displayMovesText.current ? `${masterMove0.current}` : ""}</p>
-        <p className="text-3xl text-white mb-2">Master Move 2: {displayMovesText.current ? `${masterMove1.current}` : ""}</p>
-        <p className="text-3xl text-white mb-5">Master Move 3: {displayMovesText.current ? `${masterMove2.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Master Move 1: {displayEvalBarRef.current ? `${masterMove0.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Master Move 2: {displayEvalBarRef.current ? `${masterMove1.current}` : ""}</p>
+        <p className="text-3xl text-white mb-5">Master Move 3: {displayEvalBarRef.current ? `${masterMove2.current}` : ""}</p>
         
         <h3 className="text-3xl font-bold my-5 text-white">Popular Moves over {minELO}</h3> 
-        <p className="text-3xl text-white mb-2">Move 0: {displayMovesText.current ? `${normieMove0.current}` : ""}</p>
-        <p className="text-3xl text-white mb-2">Move 1: {displayMovesText.current ? `${normieMove1.current}` : ""}</p>
-        <p className="text-3xl text-white mb-5">Move 2: {displayMovesText.current ? `${normieMove2.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Move 0: {displayEvalBarRef.current ? `${normieMove0.current}` : ""}</p>
+        <p className="text-3xl text-white mb-2">Move 1: {displayEvalBarRef.current ? `${normieMove1.current}` : ""}</p>
+        <p className="text-3xl text-white mb-5">Move 2: {displayEvalBarRef.current ? `${normieMove2.current}` : ""}</p>
         
       <button 
         onClick={() => openLichessAnalysisBoard(gameRef.current.fen())} 
