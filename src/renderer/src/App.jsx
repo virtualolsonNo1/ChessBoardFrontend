@@ -2,9 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import EvalBar from './components/EvaluationBar';
-
 import ClipLoader from "react-spinners/ClipLoader";
-let positionStack = []
+
 let currentAnalysis = null;
 let nextAnalysis = null;
 let currSfStr = "";
@@ -99,7 +98,6 @@ function openLichessAnalysisBoard(fen) {
 function App() {
 const [game, setGame] = useState(new Chess());
 const [minELO, setMinELO] = useState("1800");
-const [loadingAPIResponses, setLoadingAPIResponses] = useState(false);
 const [arrows, setArrows] = useState([
   ['', '', ''],
   ['', '', ''],
@@ -112,6 +110,7 @@ const [oldArrows, setOldArrows] = useState([
 ]);
 
 const [currentEvaluation, setCurrentEvaluation] = useState(0);
+const loadingAPIResponses = useRef(false);
 
 const stockfishMove0 = useRef({});
 const stockfishMove1 = useRef({});
@@ -122,7 +121,6 @@ const masterMove2 = useRef("");
 const normieMove0 = useRef("");
 const normieMove1 = useRef("");
 const normieMove2 = useRef("");
-const yourMove = useRef("");
 const disableAnalysisBoardButton = useRef(true);
 const analysisBoardFEN = useRef("");
 const displayPlayMoveText = useRef(false);
@@ -367,6 +365,8 @@ async function handleWebsocketMessage(message) {
 
     setGame(new Chess(gameRef.current.fen()));
 
+    loadingAPIResponses.current = true;
+
     // grab best stockfish moves, master moves, and normie moves
     console.log("about to start all promises")
     const [masterMoves, normieMoves, stockfishResult] = await Promise.all([
@@ -374,9 +374,11 @@ async function handleWebsocketMessage(message) {
       getNormieMoves(gameRef.current.fen(), 2000),
       getBestStockfishMoves(gameRef, gameRef.current.fen(), 20, setCurrentEvaluation, stockfishMove0, stockfishMove1, stockfishMove2)
     ]);
-    // getBestMove(gameRef.current.fen(), 20, setCurrentEvaluation); 
+
     console.log(stockfishResult)
     if (stockfishResult) {
+
+    loadingAPIResponses.current = false;
     
       // update master best moves text
       console.log("Master Moves")
@@ -466,9 +468,8 @@ return (
       {/* Move Analysis - fixed width with larger text */}
       <div className="w-full md:w-auto md:flex-1 bg-blue-500 p-6 rounded flex flex-col justify-start" style={{ maxWidth: '600px', flexShrink: 0, height: '90vh' }}>
         <h2 className="text-5xl font-bold mb-6 text-white">Move Analysis</h2> 
-        <h3 className="text-4xl font-bold mb-5 text-white">Your Move: {yourMove.current}</h3> 
         
-        {loadingAPIResponses && 
+        {loadingAPIResponses.current && 
           <div className="loader flex items-center mb-4">
             <span className="pr-5 font-bold text-3xl text-white">Loading Best Moves</span>
             <ClipLoader
@@ -478,10 +479,6 @@ return (
               size={28}
             />
           </div>
-        }
-        
-        {loadingAPIResponses && 
-          <div className="pb-5 text-3xl text-white">Feel Free to Play Your Move in the Meantime</div>
         }
         
         <h3 className="text-3xl font-bold my-5 text-white">Stockfish Best Moves</h3> 
