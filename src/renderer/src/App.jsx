@@ -147,8 +147,10 @@ function setupStockfishListener() {
       // console.log("Current string: " + currSfStr)
       // console.log("Done printing curr str shit")
       console.log("multipv 3 line found: " + multipv3Regex.test(currSfStr))
-      // if data includes depth 20 multipv 3, found 3 best lines, so handle accordingly, otherwise, stop was called early
-      if (multipv3Regex.test(currSfStr)) {
+      console.log("multipv 2 line found: " + multipv2Regex.test(currSfStr))
+      console.log("multipv 1 line found: " + multipv1Regex.test(currSfStr))
+      // check if found best move(s) or stop called
+      if (!stopAlreadyCalled && (multipv3Regex.test(currSfStr) || multipv2Regex.test(currSfStr) || multipv1Regex.test(currSfStr))) {
         console.log("Found best move at depth 20!!!!!!!!!!")
         
         // Get the promise resolvers for this position in order to check who's turn it  was for position in promise
@@ -156,63 +158,83 @@ function setupStockfishListener() {
         console.log("FEN: " + fen)
         
         let mult = turn == 'w' ? 1 : -1;
-
-        let match = currSfStr.match(multipv1Regex)
-        let hasMate = false;
+        
+        let match = null
+        let hasMate = null;
         let mateCount = null;
-        console.log("Match 1 cp or mate: " + match[1]);
-
         let centipawn = "";
-        if (match[1].includes("mate")) {
-            centipawn = turn == 'w' ? "1000" : "-1000"
-            // grab entire number at end of capture group
-            mateCount = parseInt(match[1].substring(5));
-            hasMate = true;
-        } else {
-            const cp = match[1].substring(3);
-            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-            hasMate = false;
-        }
-        
-        // update evaluation centipawns for eval bar
-        setCurrentEvaluation(hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn);
-        
-        let moveUCI = match[2];
-        stockfishMove0.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
-        stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
-        
+        let moveUCI = null;
+        if (multipv1Regex.test(currSfStr)) {
+          match = currSfStr.match(multipv1Regex)
+          hasMate = false;
+          mateCount = null;
+          console.log("Match 1 cp or mate: " + match[1]);
 
-        match = currSfStr.match(multipv2Regex)
-        if (match[1].includes("mate")) {
-            centipawn = turn == 'w' ? "1000" : "-1000"
-            // grab entire number at end of capture group
-            mateCount = parseInt(match[1].substring(5));
-            hasMate = true;
+          if (match[1].includes("mate")) {
+              centipawn = turn == 'w' ? "1000" : "-1000"
+              // grab entire number at end of capture group
+              mateCount = parseInt(match[1].substring(5));
+              hasMate = true;
+          } else {
+              const cp = match[1].substring(3);
+              centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+              hasMate = false;
+          }
+          
+          // update evaluation centipawns for eval bar
+          setCurrentEvaluation(hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn);
+          
+          moveUCI = match[2];
+          stockfishMove0.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+          stockfishMove0.current["UCI"] = moveUCI.substring(0, 4);  
         } else {
-            const cp = match[1].substring(3);
-            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-            hasMate = false;
-        }
-        
-        moveUCI = match[2];
-        stockfishMove1.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
-        stockfishMove1.current["UCI"] = moveUCI;  
-
-        match = currSfStr.match(multipv3Regex)
-        if (match[1].includes("mate")) {
-            centipawn = turn == 'w' ? "1000" : "-1000"
-            // grab entire number at end of capture group
-            mateCount = parseInt(match[1].substring(5));
-            hasMate = true;
-        } else {
-            const cp = match[1].substring(3);
-            centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
-            hasMate = false;
+          stockfishMove0.current["CP"] = "";
+          stockfishMove0.current["UCI"] = "";
         }
 
-        moveUCI = match[2];
-        stockfishMove2.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
-        stockfishMove2.current["UCI"] = moveUCI;  
+        if (multipv2Regex.test(currSfStr)) {
+          match = currSfStr.match(multipv2Regex)
+          if (match[1].includes("mate")) {
+              centipawn = turn == 'w' ? "1000" : "-1000"
+              // grab entire number at end of capture group
+              mateCount = parseInt(match[1].substring(5));
+              hasMate = true;
+          } else {
+              const cp = match[1].substring(3);
+              centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+              hasMate = false;
+          }
+          
+          moveUCI = match[2];
+          stockfishMove1.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+          stockfishMove1.current["UCI"] = moveUCI;  
+        } else {
+          stockfishMove1.current["CP"] = "";
+          stockfishMove1.current["UCI"] = "";
+        }
+
+
+        if (multipv3Regex.test(currSfStr)) {
+          match = currSfStr.match(multipv3Regex)
+          if (match[1].includes("mate")) {
+              centipawn = turn == 'w' ? "1000" : "-1000"
+              // grab entire number at end of capture group
+              mateCount = parseInt(match[1].substring(5));
+              hasMate = true;
+          } else {
+              const cp = match[1].substring(3);
+              centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
+              hasMate = false;
+          }
+
+          moveUCI = match[2];
+          stockfishMove2.current["CP"] = hasMate ? (mult === -1 ? ("M" + ((mateCount * mult).toString())) : ("M" + mateCount.toString())) : centipawn;  
+          stockfishMove2.current["UCI"] = moveUCI;  
+        } else {
+          stockfishMove2.current["CP"] = "";
+          stockfishMove2.current["UCI"] = "";
+        }
+
             
 
             
@@ -240,6 +262,21 @@ function setupStockfishListener() {
         } else {
           isStockfishBusy = false;
           console.log("NO SECOND MOVE ALREADY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+          // update arrows if enabled and update old arrows if disabled, doing so here instead of after resolve in case lichess api not working (i.e. no wifi)
+          console.log("Display Eval Bar: " + displayEvalBarRef.current)
+          if (displayEvalBarRef.current) {
+            setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                      [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                      [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+            );
+          } else {
+            setOldArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+                      [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+                      [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+            );
+          }
+
           resolve(true);
         }
 
@@ -358,12 +395,11 @@ async function handleWebsocketMessage(message) {
       }
 
 
-
-    // TODO: TEST WITH THIS AS WELL AS try to find fix for super quick play and listener b/w issues due to wrong listener being alive
-      // window.stockfish.sendCommand("stop");
+      console.log("str: " + str);
     const move = gameRef.current.move({
       from: str.substring(0, 2),
       to: str.substring(2, 4),
+      promotion: (str.length >= 5 && (str.substring(4, 5) == "q" || str.substring(4, 5) == "Q")) ? str.substring(4, 5) : undefined
     });
 
     setGame(new Chess(gameRef.current.fen()));
@@ -400,20 +436,19 @@ async function handleWebsocketMessage(message) {
       normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
-      // TODO: TEST TO SEE IF UPDATES OLD ARROWS IN BACKGROUND WHEN OFF!!!!
       // update arrows if enabled and update old arrows if disabled
-      console.log("Display Eval Bar: " + displayEvalBarRef.current)
-      if (displayEvalBarRef.current) {
-        setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-        );
-      } else {
-        setOldArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-                  [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-                  [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-        );
-      }
+      // console.log("Display Eval Bar: " + displayEvalBarRef.current)
+      // if (displayEvalBarRef.current) {
+      //   setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+      //             [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+      //             [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+      //   );
+      // } else {
+      //   setOldArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
+      //             [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
+      //             [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
+      //   );
+      // }
 
     }
   }
