@@ -4,6 +4,9 @@ import { Chess } from 'chess.js';
 import EvalBar from './components/EvaluationBar';
 import ClipLoader from "react-spinners/ClipLoader";
 
+const ONE_PIECE_MOVE_REPORT_IN = "1";
+const TWO_PIECE_MOVE_REPORT_IN = "2";
+
 let currentAnalysis = null;
 let nextAnalysis = null;
 let currSfStr = "";
@@ -13,6 +16,8 @@ const bestmoveRegex = /bestmove/;
 const multipv1Regex = /info depth 20 seldepth \d+ multipv 1 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
 const multipv2Regex = /info depth 20 seldepth \d+ multipv 2 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
 const multipv3Regex = /info depth 20 seldepth \d+ multipv 3 score ((?:cp|mate) -?\d+) nodes \d+ nps \d+ hashfull \d+ tbhits \d+ time \d+ pv ([a-h][1-8][a-h][1-8][qrnb]?)/;
+
+const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 const override = {
   display: "block",
@@ -110,6 +115,7 @@ const [oldArrows, setOldArrows] = useState([
 ]);
 
 const [currentEvaluation, setCurrentEvaluation] = useState(0);
+const [customSquareStyles, setCustomSquareStyles] = useState({});
 const loadingAPIResponses = useRef(false);
 
 const stockfishMove0 = useRef({});
@@ -136,16 +142,12 @@ function setupStockfishListener() {
   
   // when output from stockfish received, update accordingly
   stockfishListener = window.stockfish.onOutput((data) => {
-    // TODO: FIX FOR MATE FOR BOTH EVAL AND FINDING IT IN STOCKFISH STRING
     console.log(data);
 
     currSfStr += data
     console.log("Best move found: " + bestmoveRegex.test(currSfStr))
 
     if (bestmoveRegex.test(currSfStr)) {
-      
-      // console.log("Current string: " + currSfStr)
-      // console.log("Done printing curr str shit")
       console.log("multipv 3 line found: " + multipv3Regex.test(currSfStr))
       console.log("multipv 2 line found: " + multipv2Regex.test(currSfStr))
       console.log("multipv 1 line found: " + multipv1Regex.test(currSfStr))
@@ -177,6 +179,7 @@ function setupStockfishListener() {
               hasMate = true;
           } else {
               const cp = match[1].substring(3);
+              // if black's turn, convert centipawns to from white's perspective
               centipawn = (turn == 'w' ? cp : (parseInt(cp) * -1).toString());
               hasMate = false;
           }
@@ -284,7 +287,9 @@ function setupStockfishListener() {
       } else {
         console.log("STOP CALLED EARLY!!!!!!!!")
 
-        const { resolve } = currentAnalysis;
+        if (currentAnalysis != null) {
+          const { resolve } = currentAnalysis;
+        }
 
         resolve(false);
 
@@ -317,6 +322,17 @@ useEffect(() => {
   gameRef.current = game;
 }, [game]);
 
+// Highlight a specific square when component mounts (initializes)
+useEffect(() => {
+  // Highlight e4 square on initial mount
+  setCustomSquareStyles({
+    e4: {
+      backgroundColor: 'rgba(255, 255, 0, 0.4)',
+      borderRadius: '50%'
+    }
+  });
+}, []); // Empty dependency array means this runs once on mount
+
 function toggleEvalBar() {
   // if eval bar is off, make arrows disappear, otherwise, if turning on, put back on most up to date arrows
   displayEvalBarRef.current = !(displayEvalBarRef.current);
@@ -344,6 +360,109 @@ function toggleEvalBar() {
   console.log(arrows)
 }
 
+const animationCancelRef = useRef(false);
+const pieceRowAndCol = useRef(null);
+const animateLights = async (longLightsArr, startRow, startCol) => {
+    // set animation cancel to false in case was previously cancelled
+    animationCancelRef.current = false;
+    
+    
+    // convert lightsArray to 8x8 2d array
+    const lightsArray = [];
+    for (let i = 0; i < 8; i++) {
+      lightsArray.push(longLightsArr.slice(i * 8, (i + 1) * 8));
+    }
+
+    console.log(lightsArray)
+    
+    // Animate lights expanding from the starting position
+    for (let i = 1; i < 8; i++) {
+      // If animation was cancelled, set all square styles to empty and return immediately
+      if (animationCancelRef.current) {
+        return;
+      }
+
+      const squareStyles = {};
+      let foundLight = false;
+
+      // light up piece Square
+      const pieceFile = files[startCol];
+      const pieceRank = 8 - startRow;
+      const pieceSquare = `${pieceFile}${pieceRank}`;
+
+      if (i == 1) {
+        console.log(pieceSquare)
+      }
+      squareStyles[pieceSquare] = {
+        backgroundColor: 'rgba(128, 0, 0, 0.4)',
+        borderRadius: '50%'
+      };
+
+      
+      // Check all 8 directions up to distance i
+      for (let j = 1; j <= i; j++) {
+        const directions = [
+          [j, 0], [j, j], [j, -j], [-j, 0],
+          [-j, j], [-j, -j], [0, j], [0, -j]
+        ];
+        
+        directions.forEach(([dRow, dCol]) => {
+          const row = startRow + dRow;
+          const col = startCol + dCol;
+          
+          if (row >= 0 && row < 8 && col >= 0 && col < 8 && lightsArray[row][col] === 1) {
+            foundLight = true;
+            const file = files[col];
+            const rank = 8 - row;
+            const square = `${file}${rank}`;
+            
+            squareStyles[square] = {
+              backgroundColor: 'rgba(255, 255, 0, 0.4)',
+              borderRadius: '50%'
+            };
+          }
+        });
+
+      }
+      // Check knight moves (only need to check once, not in loop)
+        const knightMoves = [
+          [2, 1], [2, -1], [-2, 1], [-2, -1],
+          [1, 2], [1, -2], [-1, 2], [-1, -2]
+        ];
+        
+        knightMoves.forEach(([dRow, dCol]) => {
+          const row = startRow + dRow;
+          const col = startCol + dCol;
+          
+          if (row >= 0 && row < 8 && col >= 0 && col < 8 && lightsArray[row][col] === 1) {
+            foundLight = true;
+            const file = files[col];
+            const rank = 8 - row;
+            const square = `${file}${rank}`;
+            
+            squareStyles[square] = {
+              backgroundColor: 'rgba(255, 255, 0, 0.4)',
+              borderRadius: '50%'
+            };
+          }
+        });
+      
+      if (animationCancelRef.current) {
+        return;
+      }
+      setCustomSquareStyles(squareStyles);
+      
+      if (foundLight) {
+        // Wait 100ms before next iteration
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+  };
+
+  // Cancel the animation when needed
+  const cancelAnimation = () => {
+    animationCancelRef.current = true;
+  };
   
 async function handleWebsocketMessage(message) {
   let str = '';
@@ -371,8 +490,15 @@ async function handleWebsocketMessage(message) {
     console.log(gameRef.current.fen())
     setCurrentEvaluation(0);
     return;
-  } else {
+  } else if (str[0] == ONE_PIECE_MOVE_REPORT_IN || str[0] == TWO_PIECE_MOVE_REPORT_IN) {
+
+    // clear lights on gui if anything is lit up
+    setCustomSquareStyles({});
     
+    // set pieceRowAndCol to null
+    pieceRowAndCol.current = null;
+
+    str = str.substring(1);
     if (disableAnalysisBoardButton.current) {
       disableAnalysisBoardButton.current = false;
     }
@@ -436,23 +562,60 @@ async function handleWebsocketMessage(message) {
       normieMove1.current = normieMoves.moves[1] != undefined ? normieMoves.moves[1].uci : "No move found";
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
-      // update arrows if enabled and update old arrows if disabled
-      // console.log("Display Eval Bar: " + displayEvalBarRef.current)
-      // if (displayEvalBarRef.current) {
-      //   setArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-      //             [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-      //             [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-      //   );
-      // } else {
-      //   setOldArrows([[stockfishMove0.current["UCI"].substring(0, 2), stockfishMove0.current["UCI"].substring(2, 4), 'green'],
-      //             [stockfishMove1.current["UCI"].substring(0, 2), stockfishMove1.current["UCI"].substring(2, 4), 'yellow'],
-      //             [stockfishMove2.current["UCI"].substring(0, 2), stockfishMove2.current["UCI"].substring(2, 4), 'orange']]
-      //   );
-      // }
+    }
+  } else if (str[0] == "3") {
+    str = str.substring(1);
 
+    console.log("str: " + str);
+    const longLightsArr = JSON.parse(str);
+    
+    let pieceI = longLightsArr.shift();
+    let pieceJ = longLightsArr.shift();
+    
+    // set pieceRowAndCol
+    pieceRowAndCol.current = [pieceI, pieceJ]
+
+    animateLights(longLightsArr, pieceI, pieceJ);
+
+  } else if (str[0] == "7") {
+    str = str.substring(1);
+    const frontendData = JSON.parse(str);
+    if (frontendData[0] == "1") {
+      console.log("PIECE PUT DOWN!!!!!!!!!\n");
+      animationCancelRef.current = true;
+      setCustomSquareStyles({})
+    } else if (frontendData[0] == 2) {
+      console.log("PIECE MOVING OVER NEW SQUARE!!!!!!!!!\n");
+      animationCancelRef.current = true;
+      
+      const pieceRow = pieceRowAndCol.current[0];
+      const pieceCol = pieceRowAndCol.current[1];
+
+      const pieceFile = files[pieceCol];
+      const pieceRank = 8 - pieceRow;
+      const oldSquare = `${pieceFile}${pieceRank}`;
+
+      const pieceNewRow = frontendData[1];
+      const pieceNewCol = frontendData[2];
+
+      const pieceNewFile = files[pieceNewCol];
+      const pieceNewRank = 8 - pieceNewRow;
+      const newSquare = `${pieceNewFile}${pieceNewRank}`;
+      const squareStyles = {};
+
+      squareStyles[oldSquare] = {
+        backgroundColor: 'rgba(128, 0, 0, 0.4)',
+        borderRadius: '50%'
+      };
+      squareStyles[newSquare] = {
+        backgroundColor: 'rgba(255, 255, 0, 0.4)',
+        borderRadius: '50%'
+      };
+
+      setCustomSquareStyles(squareStyles)
+      
     }
   }
-
 }
   
 useEffect(() => {
@@ -492,6 +655,7 @@ return (
             arePiecesDraggable={false} 
             areArrowsAllowed={displayArrows} 
             customArrows={arrows} 
+            customSquareStyles={customSquareStyles}
             animationDuration={300}
           />
         </div>

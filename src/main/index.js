@@ -11,7 +11,7 @@ const platform = os.platform()
 
 console.log("platform: ", platform)
 // Go up one level from index.js (src/main) to src, then up again to root, then to stockfish folder
-const stockfishPath = platform == "win32" ? 'C:\\Users\\virtu\\Downloads\\stockfish-windows-x86-64-avx2\\stockfish\\stockfish-windows-x86-64-avx2.exe': "./stockfish/stockfishLinux/stockfish-ubuntu-x86-64-avx2"
+const stockfishPath = platform == "win32" ? 'C:\\Users\\virtu\\Downloads\\stockfish-windows-x86-64-avx2\\stockfish\\stockfish-windows-x86-64-avx2.exe': (platform == "darwin" ? "/Users/carlolson/Projects/ChessBoardFrontend/stockfish/stockfishMacOS/stockfish-macos-m1-apple-silicon" : "./stockfish/stockfishLinux/stockfish-ubuntu-x86-64-avx2")
 
 let stockfishProcess;
 
