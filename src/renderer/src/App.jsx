@@ -6,6 +6,10 @@ import ClipLoader from "react-spinners/ClipLoader";
 
 const ONE_PIECE_MOVE_REPORT_IN = "1";
 const TWO_PIECE_MOVE_REPORT_IN = "2";
+const RESET_OR_LIGHTS_REPORT_IN = "3";
+const FRONTEND_DATA_REPORT_IN = "7";
+
+const SECOND_PIECE_PICKUP_REPORT_REASON = 3;
 
 let currentAnalysis = null;
 let nextAnalysis = null;
@@ -543,7 +547,7 @@ async function handleWebsocketMessage(message) {
     console.log(stockfishResult)
     if (stockfishResult) {
 
-    loadingAPIResponses.current = false;
+      loadingAPIResponses.current = false;
     
       // update master best moves text
       console.log("Master Moves")
@@ -563,7 +567,8 @@ async function handleWebsocketMessage(message) {
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
     }
-  } else if (str[0] == "3") {
+  } else if (str[0] == RESET_OR_LIGHTS_REPORT_IN) {
+    // handle one piece pickup
     str = str.substring(1);
 
     console.log("str: " + str);
@@ -577,13 +582,18 @@ async function handleWebsocketMessage(message) {
 
     animateLights(longLightsArr, pieceI, pieceJ);
 
-  } else if (str[0] == "7") {
+  } else if (str[0] == FRONTEND_DATA_REPORT_IN) {
     str = str.substring(1);
     const frontendData = JSON.parse(str);
+    
+    // console.log()
+    // piece put down
     if (frontendData[0] == "1") {
       console.log("PIECE PUT DOWN!!!!!!!!!\n");
       animationCancelRef.current = true;
       setCustomSquareStyles({})
+      
+    // piece moved
     } else if (frontendData[0] == 2) {
       console.log("PIECE MOVING OVER NEW SQUARE!!!!!!!!!\n");
       animationCancelRef.current = true;
@@ -614,6 +624,36 @@ async function handleWebsocketMessage(message) {
 
       setCustomSquareStyles(squareStyles)
       
+    // second piece picked up
+    } else if (frontendData[0] == SECOND_PIECE_PICKUP_REPORT_REASON) {
+      console.log("SECOND PIECE PICKED UP!!!!!!!!!\n");
+      animationCancelRef.current = true;
+      
+      const pieceRow = pieceRowAndCol.current[0];
+      const pieceCol = pieceRowAndCol.current[1];
+
+      const pieceFile = files[pieceCol];
+      const pieceRank = 8 - pieceRow;
+      const oldSquare = `${pieceFile}${pieceRank}`;
+
+      const secondPieceRow = frontendData[1];
+      const secondPieceCol = frontendData[2];
+
+      const secondPieceFile = files[secondPieceCol];
+      const secondPieceRank = 8 - secondPieceRow;
+      const secondSquare = `${secondPieceFile}${secondPieceRank}`;
+      const squareStyles = {};
+
+      squareStyles[oldSquare] = {
+        backgroundColor: 'rgba(128, 0, 0, 0.4)',
+        borderRadius: '50%'
+      };
+      squareStyles[secondSquare] = {
+        backgroundColor: 'rgba(255, 255, 0, 0.4)',
+        borderRadius: '50%'
+      };
+
+      setCustomSquareStyles(squareStyles)
     }
   }
 }
