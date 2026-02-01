@@ -9,6 +9,8 @@ const TWO_PIECE_MOVE_REPORT_IN = "2";
 const RESET_OR_LIGHTS_REPORT_IN = "3";
 const FRONTEND_DATA_REPORT_IN = "7";
 
+const PIECE_PUT_DOWN_REPORT_REASON = 1;
+const PIECE_MOVED_REPORT_REASON = 2;
 const SECOND_PIECE_PICKUP_REPORT_REASON = 3;
 
 let currentAnalysis = null;
@@ -475,7 +477,7 @@ async function handleWebsocketMessage(message) {
   }
   console.log('Received from WebSocket:', str)
   // if received string is reset game, check if it's a game reset or a move being played
-  if (str == "reset game") {
+  if (str === "reset game") {
     disableAnalysisBoardButton.current = true;
     console.log("resetting game!!!!!!")
     setGame(new Chess());
@@ -494,7 +496,7 @@ async function handleWebsocketMessage(message) {
     console.log(gameRef.current.fen())
     setCurrentEvaluation(0);
     return;
-  } else if (str[0] == ONE_PIECE_MOVE_REPORT_IN || str[0] == TWO_PIECE_MOVE_REPORT_IN) {
+  } else if (str[0] === ONE_PIECE_MOVE_REPORT_IN || str[0] === TWO_PIECE_MOVE_REPORT_IN) {
 
     // clear lights on gui if anything is lit up
     setCustomSquareStyles({});
@@ -567,7 +569,7 @@ async function handleWebsocketMessage(message) {
       normieMove2.current = normieMoves.moves[2] != undefined ? normieMoves.moves[2].uci : "No move found";
 
     }
-  } else if (str[0] == RESET_OR_LIGHTS_REPORT_IN) {
+  } else if (str[0] === RESET_OR_LIGHTS_REPORT_IN) {
     // handle one piece pickup
     str = str.substring(1);
 
@@ -582,19 +584,19 @@ async function handleWebsocketMessage(message) {
 
     animateLights(longLightsArr, pieceI, pieceJ);
 
-  } else if (str[0] == FRONTEND_DATA_REPORT_IN) {
+  } else if (str[0] === FRONTEND_DATA_REPORT_IN) {
     str = str.substring(1);
     const frontendData = JSON.parse(str);
     
     // console.log()
     // piece put down
-    if (frontendData[0] == "1") {
+    if (frontendData[0] === PIECE_PUT_DOWN_REPORT_REASON) {
       console.log("PIECE PUT DOWN!!!!!!!!!\n");
       animationCancelRef.current = true;
       setCustomSquareStyles({})
       
     // piece moved
-    } else if (frontendData[0] == 2) {
+    } else if (frontendData[0] === PIECE_MOVED_REPORT_REASON) {
       console.log("PIECE MOVING OVER NEW SQUARE!!!!!!!!!\n");
       animationCancelRef.current = true;
       
@@ -625,7 +627,7 @@ async function handleWebsocketMessage(message) {
       setCustomSquareStyles(squareStyles)
       
     // second piece picked up
-    } else if (frontendData[0] == SECOND_PIECE_PICKUP_REPORT_REASON) {
+    } else if (frontendData[0] === SECOND_PIECE_PICKUP_REPORT_REASON) {
       console.log("SECOND PIECE PICKED UP!!!!!!!!!\n");
       animationCancelRef.current = true;
       
